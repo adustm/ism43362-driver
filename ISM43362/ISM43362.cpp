@@ -450,7 +450,10 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
     if (!(_parser.send("P0=%d",id) && _parser.recv("OK"))) {
         return false;
     }
-    // TODO change the write timeout
+    /* Change the write timeout */
+    if (!(_parser.send("S2=%d", _timeout) && _parser.recv("OK"))) {
+        return false;
+    }
     /* set Write Transport Packet Size */
     if (!(_parser.send("S3=%d\r%s", (amount+2), data) && _parser.recv("OK"))){
         return false;
@@ -499,10 +502,16 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
     if (!(_parser.send("P0=%d",id) && _parser.recv("OK"))) {
         return false;
     }
-    // TODO change the recv timeout
+
+    /* Change receive timeout */
+    if (!(_parser.send("R2=%d", _timeout) && _parser.recv("OK"))) {
+        return false;
+    }
+    /* Set the amount of datas to read */
     if (!(_parser.send("R1=%d", amount) && _parser.recv("OK"))) {
         return false;
     }
+    /* Now read */
     if (!_parser.send("R0")) {
         return false;
     }
