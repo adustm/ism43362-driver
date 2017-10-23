@@ -180,27 +180,9 @@ bool ATParser::vsend(const char *command, va_list args)
         _buffer[i+j] = _delimiter[j];
     }
     _buffer[i+j]=0; // only to get a clean debug log
- //   _buffer[i+j+2]=0; // only to get a clean debug log
     
     _serial_spi->write(_buffer, i+j); /* DEBUG : check returned value */
-#if 0    
-    /* flush buffer from previous message */
-    _serial_spi->flush_txbuf();
-    
-    for (int i = 0; _buffer[i]; i++) {
-        if (putc(_buffer[i]) < 0) {
-            return false;
-        }
-    }
-    // TODO if _buffer[i] impair : g�rer le dernier caract�re !!!
-    
-    // Finish with newline
-    for (int i = 0; _delimiter[i]; i++) {
-        if (putc(_delimiter[i]) < 0) {
-            return false;
-        }
-    }
-#endif
+
     debug_if(dbg_on, "AT> %s\r\n", _buffer);
     return true;
 }
