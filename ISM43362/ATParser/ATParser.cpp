@@ -181,7 +181,7 @@ bool ATParser::vsend(const char *command, va_list args)
     }
     _buffer[i+j]=0; // only to get a clean debug log
     
-    _serial_spi->write(_buffer, i+j); /* DEBUG : check returned value */
+    _serial_spi->buffwrite(_buffer, i+j); /* DEBUG : check returned value */
 
     debug_if(dbg_on, "AT> %s\r\n", _buffer);
     return true;
@@ -228,7 +228,7 @@ bool ATParser::vrecv(const char *response, va_list args)
         //
         // We keep trying the match until we succeed or some other error
         // derails us.
-        int j = 0;
+        uint32_t j = 0;
 
         while (true) {
             // Recieve next character
@@ -240,7 +240,7 @@ bool ATParser::vrecv(const char *response, va_list args)
             _buffer[offset + j] = 0;
 
             // Check for oob data
-            for (int k = 0; k < _oobs.size(); k++) {
+            for (uint32_t k = 0; k < _oobs.size(); k++) {
                 if (j == _oobs[k].len && memcmp(
                         _oobs[k].prefix, _buffer+offset, _oobs[k].len) == 0) {
                     debug_if(dbg_on, "AT! %s\r\n", _oobs[k].prefix);
@@ -257,7 +257,7 @@ bool ATParser::vrecv(const char *response, va_list args)
             sscanf(_buffer+offset, _buffer, &count);
 
             // We only succeed if all characters in the response are matched
-            if (count == j) {
+            if (count == (int)j) {
                 debug_if(dbg_on, "AT= %s\r\n", _buffer+offset);
                 // Reuse the front end of the buffer
                 memcpy(_buffer, response, i);
@@ -273,7 +273,7 @@ bool ATParser::vrecv(const char *response, va_list args)
 
             // Clear the buffer when we hit a newline or ran out of space
             // running out of space usually means we ran into binary data
-            if (j+1 >= _buffer_size - offset ||
+            if ((int)(j+1) >= _buffer_size - offset ||
                 strcmp(&_buffer[offset + j-_delim_size], _delimiter) == 0) {
 
                 debug_if(dbg_on, "AT< %s", _buffer+offset);

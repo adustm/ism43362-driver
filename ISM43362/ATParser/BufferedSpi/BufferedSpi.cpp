@@ -25,8 +25,9 @@
 
 extern "C" int BufferedPrintfC(void *stream, int size, const char* format, va_list arg);
 
-BufferedSpi::BufferedSpi(PinName mosi, PinName miso, PinName sclk, PinName nss, PinName datareadypin, uint32_t buf_size, uint32_t tx_multiple, const char* name)
-    : SPI(mosi, miso, sclk, NC) , nss(nss), dataready(datareadypin), _rxbuf(buf_size), _txbuf((uint32_t)(tx_multiple*buf_size))
+BufferedSpi::BufferedSpi(PinName mosi, PinName miso, PinName sclk, PinName _nss, PinName _datareadypin,
+                         uint32_t buf_size, uint32_t tx_multiple, const char* name)
+    : SPI(mosi, miso, sclk, NC), nss(_nss),  _txbuf((uint32_t)(tx_multiple*buf_size)), _rxbuf(buf_size), dataready(_datareadypin)
 {
     this->_buf_size = buf_size;
     this->_tx_multiple = tx_multiple;   
@@ -121,7 +122,7 @@ int BufferedSpi::puts(const char *s)
 extern "C" size_t BufferedSpiThunk(void *buf_spi, const void *s, size_t length)
 {
     BufferedSpi *buffered_spi = (BufferedSpi *)buf_spi;
-    return buffered_spi->write(s, length);
+    return buffered_spi->buffwrite(s, length);
 }
 
 int BufferedSpi::printf(const char* format, ...)
@@ -133,7 +134,7 @@ int BufferedSpi::printf(const char* format, ...)
     return r;
 }
 
-ssize_t BufferedSpi::write(const void *s, size_t length)
+ssize_t BufferedSpi::buffwrite(const void *s, size_t length)
 {
     /* flush buffer from previous message */
     this->flush_txbuf();

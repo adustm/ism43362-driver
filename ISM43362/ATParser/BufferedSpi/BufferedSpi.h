@@ -71,10 +71,10 @@
 class BufferedSpi : public SPI 
 {
 private:
+    DigitalOut    nss;
     MyBuffer <char> _txbuf;
     uint32_t      _buf_size;
     uint32_t      _tx_multiple;
-    DigitalOut    nss;
     void rxIrq(void);
     void txIrq(void);
     void prime(void);
@@ -163,7 +163,7 @@ public:
      *  @param length The amount of data being pointed to
      *  @return The number of bytes written to the Spi Port Buffer
      */
-    virtual ssize_t write(const void *s, std::size_t length);
+    virtual ssize_t buffwrite(const void *s, std::size_t length);
     
     /** Read data from the Spi Port to the _rxbuf
      *  @param max: optional. = max sieze of the input read
