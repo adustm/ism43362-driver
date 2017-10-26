@@ -417,12 +417,12 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
         return false;
     }
     /* Start client */
-    if (!_parser.send("P6=1")) { // LATER : CHECK OK !!
+    if (!(_parser.send("P6=1") && _parser.recv("OK"))) { // LATER : CHECK OK !!
         return false;
     }
-    char tmp[50];
-    _parser.recv(tmp,50);
-    printf("result of connection: %s\n", tmp);
+//    char tmp[50];
+//    _parser.recv(tmp,50);
+//    printf("result of connection: %s\n", tmp);
     return true;
 }
 
@@ -516,9 +516,7 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
         return false;
     }
 
-    _parser.read((char *)data, amount);
-    printf("socket receive: %s\n", (char *)data);
-    return true;
+    return _parser.read((char *)data, amount);
 }
 
 bool ISM43362::close(int id)
