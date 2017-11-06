@@ -56,14 +56,17 @@ private:
     // Parsing information
     const char *_delimiter;
     int _delim_size;
+    char _in_prev;
     bool dbg_on;
+    bool _aborted;
 
     struct oob {
         unsigned len;
         const char *prefix;
         mbed::Callback<void()> cb;
+        oob *next;
     };
-    std::vector<oob> _oobs;
+    oob *_oobs;
 
 public:
     /**
@@ -74,9 +77,10 @@ public:
     * @param timeout timeout of the connection
     * @param delimiter string of characters to use as line delimiters
     */
-    ATParser(BufferedSpi &serial_spi, const char *delimiter = "\r\n", int buffer_size = 256, int timeout = 8000, bool debug = false) :
+    ATParser(BufferedSpi &serial_spi, const char *delimiter = "\r", int buffer_size = 256, int timeout = 8000, bool debug = false) :
         _serial_spi(&serial_spi),
-        _buffer_size(buffer_size) {
+        _buffer_size(buffer_size), _in_prev(0), _oobs(NULL)
+    {
         _buffer = new char[buffer_size];
         setTimeout(timeout);
         setDelimiter(delimiter);
@@ -86,8 +90,14 @@ public:
     /**
     * Destructor
     */
-    ~ATParser() {
-        delete [] _buffer;
+    ~ATParser()
+    {
+        while (_oobs) {
+            struct oob *oob = _oobs;
+            _oobs = oob->next;
+            delete oob;
+        }
+        delete[] _buffer;
     }
 
     /**
@@ -95,7 +105,8 @@ public:
     *
     * @param timeout timeout of the connection
     */
-    void setTimeout(int timeout) {
+    void setTimeout(int timeout) 
+    {
         _timeout = timeout;
     }
 
@@ -119,77 +130,78 @@ public:
     }
 
     /**
-    * Sends an AT command
-    *
-    * Sends a formatted command using printf style formatting
-    * @see ::printf
-    *
-    * @param command printf-like format string of command to send which
-    *                is appended with the specified delimiter
-    * @param ... all printf-like arguments to insert into command
-    * @return true only if command is successfully sent
-    */
+     * Sends an AT command
+     *
+     * Sends a formatted command using printf style formatting
+     * @see printf
+     *
+     * @param command printf-like format string of command to send which
+     *                is appended with a newline
+     * @param ... all printf-like arguments to insert into command
+     * @return true only if command is successfully sent
+     */
     bool send(const char *command, ...);
+
     bool vsend(const char *command, va_list args);
 
     /**
-    * Recieve an AT response
-    *
-    * Recieves a formatted response using scanf style formatting
-    * @see ::scanf
-    *
-    * Responses are parsed line at a time using the specified delimiter.
-    * Any recieved data that does not match the response is ignored until
-    * a timeout occurs.
-    *
-    * @param response scanf-like format string of response to expect
-    * @param ... all scanf-like arguments to extract from response
-    * @return true only if response is successfully matched
-    */
+     * Receive an AT response
+     *
+     * Receives a formatted response using scanf style formatting
+     * @see scanf
+     *
+     * Responses are parsed line at a time.
+     * Any received data that does not match the response is ignored until
+     * a timeout occurs.
+     *
+     * @param response scanf-like format string of response to expect
+     * @param ... all scanf-like arguments to extract from response
+     * @return true only if response is successfully matched
+     */
     bool recv(const char *response, ...);
     bool vrecv(const char *response, va_list args);
 
     /**
-    * Write a single byte to the underlying stream
-    *
-    * @param c The byte to write
-    * @return The byte that was written or -1 during a timeout
-    */
+     * Write a single byte to the underlying stream
+     *
+     * @param c The byte to write
+     * @return The byte that was written or -1 during a timeout
+     */
     int putc(char c);
 
     /**
-    * Get a single byte from the underlying stream
-    *
-    * @return The byte that was read or -1 during a timeout
-    */
+     * Get a single byte from the underlying stream
+     *
+     * @return The byte that was read or -1 during a timeout
+     */
     int getc();
 
     /**
-    * Write an array of bytes to the underlying stream
-    *
-    * @param data the array of bytes to write
-    * @param size number of bytes to write
-    * @return number of bytes written or -1 on failure
-    */
+     * Write an array of bytes to the underlying stream
+     *
+     * @param data the array of bytes to write
+     * @param size number of bytes to write
+     * @return number of bytes written or -1 on failure
+     */
     int write(const char *data, int size);
 
     /**
-    * Read an array of bytes from the underlying stream
-    *
-    * @param data the destination for the read bytes
-    * @param size number of bytes to read
-    * @return number of bytes read or -1 on failure
-    */
+     * Read an array of bytes from the underlying stream
+     *
+     * @param data the destination for the read bytes
+     * @param size number of bytes to read
+     * @return number of bytes read or -1 on failure
+     */
     int read(char *data, int size);
 
     /**
-    * Direct printf to underlying stream
-    * @see ::printf
-    *
-    * @param format format string to pass to printf
-    * @param ... arguments to printf
-    * @return number of bytes written or -1 on failure
-    */
+     * Direct printf to underlying stream
+     * @see printf
+     *
+     * @param format format string to pass to printf
+     * @param ... arguments to printf
+     * @return number of bytes written or -1 on failure
+     */
     int printf(const char *format, ...);
     int vprintf(const char *format, va_list args);
 
@@ -202,33 +214,39 @@ public:
     * @return number of bytes read or -1 on failure
     */
     int scanf(const char *format, ...);
+
     int vscanf(const char *format, va_list args);
 
     /**
-    * Attach a callback for out-of-band data
-    * 
-    * @param prefix string on when to initiate callback
-    * @param func callback to call when string is read
-    * @note out-of-band data is only processed during a scanf call
-    */
+     * Attach a callback for out-of-band data
+     *
+     * @param prefix string on when to initiate callback
+     * @param func callback to call when string is read
+     * @note out-of-band data is only processed during a scanf call
+     */
     void oob(const char *prefix, mbed::Callback<void()> func);
 
     /**
-    * Attach a callback for out-of-band data
-    *
-    * @param prefix string on when to initiate callback
-    * @param obj pointer to object to call member function on
-    * @param method callback to call when string is read
-    * @note out-of-band data is only processed during a scanf call
-    */
-    template <typename T, typename M>
-    void oob(const char *prefix, T *obj, M method) {
-        return oob(prefix, mbed::Callback<void()>(obj, method));
-    }
+     * Flushes the underlying stream
+     */
+    void flush();
 
     /**
-    * Flushes the underlying stream
+     * Abort current recv
+     *
+     * Can be called from oob handler to interrupt the current
+     * recv operation.
+     */
+    void abort();
+    
+    /**
+    * Process out-of-band data
+    *
+    * Process out-of-band data in the receive buffer. This function
+    * returns immediately if there is no data to process.
+    *
+    * @return true if oob data processed, false otherwise
     */
-    void flush();
+    bool process_oob(void);
 };
 #endif

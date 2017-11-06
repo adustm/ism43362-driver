@@ -21,6 +21,19 @@
 #include "ATParser.h"
 #include "mbed_debug.h"
 
+#ifdef LF
+#undef LF
+#define LF  10
+#else
+#define LF  10
+#endif
+
+#ifdef CR
+#undef CR
+#define CR  13
+#else
+#define CR  13
+#endif
 
 // getc/putc handling with timeouts
 int ATParser::putc(char c)
@@ -72,7 +85,7 @@ int ATParser::read(char *data, int size)
     i = 0;
     /* TODO determine the number of call to spi read */
     
-    readsize = _serial_spi->read(size);
+    readsize = _serial_spi->read(size+2);
     if ( readsize < 0)
         return -1;
 
@@ -80,6 +93,15 @@ int ATParser::read(char *data, int size)
         int c = getc();
         if (c < 0) {
             return -1;
+        }
+        /* Skip the \r \n from the start of the received buffer */
+        if ((i==0) && (c == '\r')) {
+            int c2 = getc();
+            if (c2 == '\n') {
+                c = getc();
+            } else {
+                putc(c2); // c2 back in the buffer
+            }
         }
         data[i] = c;
     }
@@ -91,9 +113,11 @@ int ATParser::read(char *data, int size)
 // printf/scanf handling
 int ATParser::vprintf(const char *format, va_list args)
 {
+
     if (vsprintf(_buffer, format, args) < 0) {
         return false;
     }
+
     int i = 0;
     for ( ; _buffer[i]; i++) {
         if (putc(_buffer[i]) < 0) {
@@ -183,7 +207,7 @@ bool ATParser::vsend(const char *command, va_list args)
     
     _serial_spi->buffwrite(_buffer, i+j); /* DEBUG : check returned value */
 
-    debug_if(dbg_on, "AT> %s\r\n", _buffer);
+    debug_if(dbg_on, "AT> %s\n", _buffer);
     return true;
 }
 
@@ -191,7 +215,8 @@ bool ATParser::vrecv(const char *response, va_list args)
 {
     /* Read from the wifi module, fill _rxbuffer */
     _serial_spi->read();
-    
+restart:
+    _aborted = false;
     // Iterate through each line in the expected response
     while (response[0]) {
         // Since response is const, we need to copy it into our buffer to
@@ -200,17 +225,20 @@ bool ATParser::vrecv(const char *response, va_list args)
         // We just use the beginning of the buffer to avoid unnecessary allocations.
         int i = 0;
         int offset = 0;
+        bool whole_line_wanted = false;
 
         while (response[i]) {
-            if (memcmp(&response[i+1-_delim_size], _delimiter, _delim_size) == 0) {
-                i++;
-                break;
-            } else if (response[i] == '%' && response[i+1] != '%' && response[i+1] != '*') {
+            if (response[i] == '%' && response[i+1] != '%' && response[i+1] != '*') {
                 _buffer[offset++] = '%';
                 _buffer[offset++] = '*';
                 i++;
             } else {
                 _buffer[offset++] = response[i++];
+                // Find linebreaks, taking care not to be fooled if they're in a %[^\n] conversion specification
+                if (response[i - 1] == '\n' && !(i >= 3 && response[i-3] == '[' && response[i-2] == '^')) {
+                    whole_line_wanted = true;
+                    break;
+                }
             }
         }
 
@@ -221,6 +249,7 @@ bool ATParser::vrecv(const char *response, va_list args)
         _buffer[offset++] = 'n';
         _buffer[offset++] = 0;
 
+        debug_if(dbg_on, "AT? %s\n", _buffer);
         // To workaround scanf's lack of error reporting, we actually
         // make two passes. One checks the validity with the modified
         // format string that only stores the matched characters (%n).
@@ -234,31 +263,55 @@ bool ATParser::vrecv(const char *response, va_list args)
             // Recieve next character
             int c = getc();
             if (c < 0) {
+                debug_if(dbg_on, "AT(Timeout)\n");
                 return false;
+            }
+            // Simplify newlines (borrowed from retarget.cpp)
+            if ((c == CR && _in_prev != LF) ||
+                (c == LF && _in_prev != CR)) {
+                _in_prev = c;
+                c = '\n';
+            } else if ((c == CR && _in_prev == LF) ||
+                       (c == LF && _in_prev == CR)) {
+                _in_prev = c;
+                // onto next character
+                continue;
+            } else {
+                _in_prev = c;
             }
             _buffer[offset + j++] = c;
             _buffer[offset + j] = 0;
 
             // Check for oob data
-            for (uint32_t k = 0; k < _oobs.size(); k++) {
-                if (j == _oobs[k].len && memcmp(
-                        _oobs[k].prefix, _buffer+offset, _oobs[k].len) == 0) {
-                    debug_if(dbg_on, "AT! %s\r\n", _oobs[k].prefix);
-                    _oobs[k].cb();
+            for (struct oob *oob = _oobs; oob; oob = oob->next) {
+                if ((unsigned)j == oob->len && memcmp(
+                        oob->prefix, _buffer+offset, oob->len) == 0) {
+                    debug_if(dbg_on, "AT! %s\n", oob->prefix);
+                    oob->cb();
 
+                    if (_aborted) {
+                        debug_if(dbg_on, "AT(Aborted)\n");
+                        return false;
+                    }
                     // oob may have corrupted non-reentrant buffer,
                     // so we need to set it up again
-                    return vrecv(response, args);
+                    goto restart;
                 }
             }
 
             // Check for match
             int count = -1;
-            sscanf(_buffer+offset, _buffer, &count);
+            if (whole_line_wanted && c != '\n') {
+                // Don't attempt scanning until we get delimiter if they included it in format
+                // This allows recv("Foo: %s\n") to work, and not match with just the first character of a string
+                // (scanf does not itself match whitespace in its format string, so \n is not significant to it)
+            } else {
+                sscanf(_buffer+offset, _buffer, &count);
+            }
 
             // We only succeed if all characters in the response are matched
             if (count == (int)j) {
-                debug_if(dbg_on, "AT= %s\r\n", _buffer+offset);
+                debug_if(dbg_on, "AT= %s\n", _buffer+offset);
                 // Reuse the front end of the buffer
                 memcpy(_buffer, response, i);
                 _buffer[i] = 0;
@@ -273,8 +326,7 @@ bool ATParser::vrecv(const char *response, va_list args)
 
             // Clear the buffer when we hit a newline or ran out of space
             // running out of space usually means we ran into binary data
-            if ((int)(j+1) >= _buffer_size - offset ||
-                strcmp(&_buffer[offset + j-_delim_size], _delimiter) == 0) {
+            if (c == '\n' || j+1 >= _buffer_size - offset) {
 
                 debug_if(dbg_on, "AT< %s", _buffer+offset);
                 j = 0;
@@ -327,9 +379,63 @@ bool ATParser::recv(const char *response, ...)
 // oob registration
 void ATParser::oob(const char *prefix, Callback<void()> cb)
 {
-    struct oob oob;
-    oob.len = strlen(prefix);
-    oob.prefix = prefix;
-    oob.cb = cb;
-    _oobs.push_back(oob);
+    struct oob *oob = new struct oob;
+    oob->len = strlen(prefix);
+    oob->prefix = prefix;
+    oob->cb = cb;
+    oob->next = _oobs;
+    _oobs = oob;
 }
+
+void ATParser::abort()
+{
+    _aborted = true;
+}
+
+bool ATParser::process_oob()
+{
+    int readsize;
+    ATParser::flush();
+    /* TODO determine the number of call to spi read */
+    
+    readsize = _serial_spi->read();
+    if ( readsize < 0)
+        return false;
+ //   if (!_fh->readable()) {
+ //       return false;
+ //   }
+
+    int i = 0;
+    while (true) {
+        // Receive next character
+        int c = getc();
+        if (c < 0) {
+            return false;
+        }
+        _buffer[i++] = c;
+        _buffer[i] = 0;
+
+        // Check for oob data
+        struct oob *oob = _oobs;
+        while (oob) {
+            if (i == (int)oob->len && memcmp(
+                    oob->prefix, _buffer, oob->len) == 0) {
+                debug_if(dbg_on, "AT! %s\r\n", oob->prefix);
+                oob->cb();
+                return true;
+            }
+            oob = oob->next;
+        }
+        
+        // Clear the buffer when we hit a newline or ran out of space
+        // running out of space usually means we ran into binary data
+        if (i+1 >= _buffer_size ||
+            strcmp(&_buffer[i-_delim_size], _delimiter) == 0) {
+
+            debug_if(dbg_on, "AT< %s", _buffer);
+            i = 0;
+        }
+    }
+}
+
+
