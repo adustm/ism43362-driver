@@ -433,9 +433,9 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
     if (!(_parser.send("D0=%s", name) && _parser.read(tmp,30))) {
         return 1;
     }
-    ptr = strchr(tmp+2,'\r');
-    strncpy(ip, tmp+2, (int)(ptr - tmp - 2));
-    *(ip + (ptr - tmp - 2)) = 0;
+    ptr = strchr(tmp,'\r');
+    strncpy(ip, tmp, (int)(ptr - tmp));
+    *(ip + (ptr - tmp)) = 0;
     printf("ip of DNSlookup: %s\n", ip);
     return 1;
 }
@@ -455,7 +455,7 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
         return false;
     }
     /* set Write Transport Packet Size */
-    if (!(_parser.send("S3=%d\r%s", (amount+2), data) && _parser.recv("OK"))){
+    if (!(_parser.send("S3=%d\r%s", (amount+1), data) && _parser.recv("OK"))){
         return false;
     }
 
@@ -494,7 +494,6 @@ void ISM43362::_packet_handler()
 
 int32_t ISM43362::recv(int id, void *data, uint32_t amount)
 {
-    // TODO: check that the amount is not > rxbuff size
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return false;
@@ -507,16 +506,33 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
     if (!(_parser.send("R2=%d", _timeout) && _parser.recv("OK"))) {
         return false;
     }
-    /* Set the amount of datas to read */
-    if (!(_parser.send("R1=%d", amount) && _parser.recv("OK"))) {
-        return false;
+    int nbcalls = (amount / _parser.get_size());
+    if (amount % _parser.get_size()) {
+        nbcalls++;
     }
-    /* Now read */
-    if (!_parser.send("R0")) {
-        return false;
+    /* Need to handle several calls to the Read Transport command in case
+       the amount to read is longer than the buffer size */
+    int i, read_amount = 0;
+    int total_read = 0, amount_to_read;
+    for (i=0; i < nbcalls; i++) {
+        if ((nbcalls > 1) && ( i != (nbcalls - 1))) {
+            amount_to_read = _parser.get_size();
+        } else {
+            amount_to_read = amount - (i * _parser.get_size());
+        }
+        /* Set the amount of datas to read */
+        if (!(_parser.send("R1=%d", amount_to_read) && _parser.recv("OK"))) {
+            return false;
+        }
+        /* Now read */
+        if (!_parser.send("R0")) {
+            return false;
+        }
+        read_amount = _parser.read((char *)(data+total_read), amount_to_read);
+	// TODO : chek is read_amount is an error or not
+        total_read += read_amount;
     }
-
-    return _parser.read((char *)data, amount);
+    return total_read;
 }
 
 bool ISM43362::close(int id)

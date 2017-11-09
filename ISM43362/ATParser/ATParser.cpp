@@ -80,33 +80,44 @@ int ATParser::write(const char *data, int size)
 
 int ATParser::read(char *data, int size)
 {
-    int readsize, i;
+    int totalreadsize = 0;
+    int sizetoread = 0;
+    int readsize, i,j;
+    int nbcalls=1;
     this->flush();
     i = 0;
-    /* TODO determine the number of call to spi read */
+    /* Determine the number of call to spi read */
+    /* it should not happen as it is handled in ATParser */
+    if (size > _buffer_size) { /* several calls to read are required */
+        nbcalls = (int) (size / _buffer_size);
+        if (size%_buffer_size) {
+            nbcalls++;
+        }
+    }
     
-    readsize = _serial_spi->read(size+2);
-    if ( readsize < 0)
-        return -1;
+    for (j=0; j< nbcalls; j++) {
+        if (j < (nbcalls - 1)) {
+            sizetoread = _buffer_size-2;
+        } else {
+            sizetoread = size - (_buffer_size * j);
+        }
+        readsize = _serial_spi->read(sizetoread);
 
-    for ( ; i < min(readsize, size); i++) {
-        int c = getc();
-        if (c < 0) {
+        if ( readsize < 0)
             return -1;
-        }
-        /* Skip the \r \n from the start of the received buffer */
-        if ((i==0) && (c == '\r')) {
-            int c2 = getc();
-            if (c2 == '\n') {
-                c = getc();
-            } else {
-                putc(c2); // c2 back in the buffer
+
+        for ( ; i < min(readsize, sizetoread); i++) {
+            int c = getc();
+            if (c < 0) {
+                return -1;
             }
+            data[i] = c;
         }
-        data[i] = c;
+        totalreadsize += i;
+        i = 0;
     }
     debug_if(dbg_on, "AT< %s\r\n", data);
-    return i;
+    return (totalreadsize) ;
 }
 
 
@@ -214,6 +225,7 @@ bool ATParser::vsend(const char *command, va_list args)
 bool ATParser::vrecv(const char *response, va_list args)
 {
     /* Read from the wifi module, fill _rxbuffer */
+    this->flush();
     _serial_spi->read();
 restart:
     _aborted = false;

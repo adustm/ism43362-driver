@@ -201,16 +201,14 @@ ssize_t BufferedSpi::read(int max)
                 break;
             }
         }
-        // TO : CHECK HOW TO HANDLE CASE WHEN number read data > buff size
-        if ((max == 0) || ((max !=0) && (len < max))) {
-            _rxbuf = (char)(tmp & 0x00FF);
-            _rxbuf = (char)((tmp >>8)& 0xFF);
-            len += 2;
+        if (!((len == 0) && (tmp == 0x0A0D))) {
+            /* do not take into account the 2 firts \r \n char in the buffer */
+            if ((max == 0) || ((max !=0) && (len < max))) {
+                _rxbuf = (char)(tmp & 0x00FF);
+                _rxbuf = (char)((tmp >>8)& 0xFF);
+                len += 2;
+            }
         }
-        // to put back once the above case will be handled
-        // if ((max != 0) && (len >= max)) {
-        //    break;
-        //}
     }
     disable_nss();
     

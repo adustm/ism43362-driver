@@ -248,5 +248,12 @@ public:
     * @return true if oob data processed, false otherwise
     */
     bool process_oob(void);
+    /**
+    * Get buffer_size
+    */
+    int get_size(void) {
+        return _buffer_size;
+    }
+
 };
 #endif
