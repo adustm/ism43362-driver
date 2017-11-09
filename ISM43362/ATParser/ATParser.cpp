@@ -115,6 +115,9 @@ int ATParser::read(char *data, int size)
         }
         totalreadsize += i;
         i = 0;
+        if (readsize < sizetoread) {
+            break; // no more data to read from the wifi device
+        }
     }
     debug_if(dbg_on, "AT< %s\r\n", data);
     return (totalreadsize) ;
