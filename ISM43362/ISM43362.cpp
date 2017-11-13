@@ -408,11 +408,6 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
     if (!(_parser.send("P3=%s", addr) && _parser.recv("OK"))) {
         return false;
     }
-    /* set port between 0 and 5024 */
-    if ((port < 0) ||(port > 5024)) {
-        printf("open: wrong port\n");
-        return false;
-    }
     if (!(_parser.send("P4=%d", port) && _parser.recv("OK"))) {
         return false;
     }
