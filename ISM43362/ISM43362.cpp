@@ -437,7 +437,7 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
 
 bool ISM43362::send(int id, const void *data, uint32_t amount)
 {
-    // TODO CHECK SIZE NOT > txbuf size !!! if ((amount - 2) > 
+    // TODO CHECK SIZE NOT > txbuf size
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return false;
@@ -450,7 +450,12 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
         return false;
     }
     /* set Write Transport Packet Size */
-    if (!(_parser.send("S3=%d\r%s", (amount+1), data) && _parser.recv("OK"))){
+    int i = _parser.printf("S3=%d\r", (int)(amount + 1));
+    if (i < 0) {
+        return false;
+    }
+    i = _parser.write((const char *)data, (amount + 1), i);
+    if ((i < 0) && !_parser.recv("OK")) {
         return false;
     }
 

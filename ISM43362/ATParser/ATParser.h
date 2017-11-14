@@ -178,12 +178,14 @@ public:
 
     /**
      * Write an array of bytes to the underlying stream
+     * assuming the header of the command is already in _txbuffer
      *
      * @param data the array of bytes to write
-     * @param size number of bytes to write
+     * @param size_of_data number of bytes in data array
+     * @param size_in_buff number of bytes already in the internal buff
      * @return number of bytes written or -1 on failure
      */
-    int write(const char *data, int size);
+    int write(const char *data, int size_of_data, int size_in_buff);
 
     /**
      * Read an array of bytes from the underlying stream

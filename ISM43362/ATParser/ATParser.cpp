@@ -67,15 +67,16 @@ void ATParser::flush()
 }
 
 // read/write handling with timeouts
-int ATParser::write(const char *data, int size)
+int ATParser::write(const char *data, int size_of_data, int size_in_buff)
 {
     int i = 0;
-    for ( ; i < size; i++) {
+    for ( ; i < size_of_data; i++) {
         if (putc(data[i]) < 0) {
             return -1;
         }
     }
-    return i;
+    _serial_spi->buffsend(size_of_data + size_in_buff);
+    return (size_of_data + size_in_buff);
 }
 
 int ATParser::read(char *data, int size)
@@ -214,6 +215,7 @@ bool ATParser::vsend(const char *command, va_list args)
     /* get buffer length */
     for (i = 0; _buffer[i]; i++) {
     }
+
     for (j=0; _delimiter[j]; j++) {
         _buffer[i+j] = _delimiter[j];
     }

@@ -164,7 +164,14 @@ public:
      *  @return The number of bytes written to the Spi Port Buffer
      */
     virtual ssize_t buffwrite(const void *s, std::size_t length);
-    
+
+    /** Send datas to the Spi port that are already present
+     *  in the internal _txbuffer
+     *  @param length
+     *  @return the number of bytes written on the SPI port
+     */
+    virtual ssize_t buffsend(size_t length);
+
     /** Read data from the Spi Port to the _rxbuf
      *  @param max: optional. = max sieze of the input read
      *  @return The number of bytes read from the SPI port and written to the _rxbuf

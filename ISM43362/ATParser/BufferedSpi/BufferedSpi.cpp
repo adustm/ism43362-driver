@@ -94,7 +94,6 @@ int BufferedSpi::get16b(void)
 int BufferedSpi::putc(int c)
 {
     _txbuf = (char)c;
-    BufferedSpi::prime();
 
     return c;
 }
@@ -165,6 +164,25 @@ ssize_t BufferedSpi::buffwrite(const void *s, size_t length)
     this->disable_nss();
 
     return 0;
+}
+
+ssize_t BufferedSpi::buffsend(size_t length)
+{
+    /* wait for dataready = 1 */
+    while(dataready.read() == 0) {
+    }
+    this->enable_nss();
+
+    /* _txbuffer is already filled with data to send */
+    /* check if _txbuffer needs padding to send the last char */
+    if (length & 1) {
+        _txbuf = '\n';
+        length++;
+    }
+    BufferedSpi::txIrq();                // only write to hardware in one place
+    this->disable_nss();
+
+    return length;
 }
 
 ssize_t BufferedSpi::read()
