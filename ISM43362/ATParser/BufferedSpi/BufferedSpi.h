@@ -80,7 +80,10 @@ private:
     void prime(void);
 
     Callback<void()> _cbs[2];
-    
+
+    Callback<void()> _sigio_cb;
+    uint8_t          _sigio_event;
+
 public:
     MyBuffer <char> _rxbuf;
     DigitalIn dataready;
@@ -179,6 +182,11 @@ public:
     virtual ssize_t read();
     virtual ssize_t read(int max);
 
+    /** Register a callback once any data is ready for sockets
+     *  @param func     Function to call on state change
+     */
+    virtual void sigio(Callback<void()> func);
+    
     /** Attach a function to call whenever a serial interrupt is generated
      *  @param func A pointer to a void function, or 0 to set as none
      *  @param type Which serial interrupt to attach the member function to (Serial::RxIrq for receive, TxIrq for transmit buffer empty)

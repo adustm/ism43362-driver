@@ -202,6 +202,14 @@ public:
     void attach(Callback<void()> func);
 
     /**
+    * Check is datas are available to read for a socket
+    * @param id socket id
+    * @param data placeholder for returned information
+    * @param amount size to read for the check
+    */
+    bool check_recv_status(int id, void *data, uint32_t amount);
+    
+    /**
     * Attach a function to call whenever network state has changed
     *
     * @param obj pointer to the object to call the member function on

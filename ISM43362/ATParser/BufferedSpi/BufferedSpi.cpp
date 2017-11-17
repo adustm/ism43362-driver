@@ -30,7 +30,8 @@ BufferedSpi::BufferedSpi(PinName mosi, PinName miso, PinName sclk, PinName _nss,
     : SPI(mosi, miso, sclk, NC), nss(_nss),  _txbuf((uint32_t)(tx_multiple*buf_size)), _rxbuf(buf_size), dataready(_datareadypin)
 {
     this->_buf_size = buf_size;
-    this->_tx_multiple = tx_multiple;   
+    this->_tx_multiple = tx_multiple;
+    this->_sigio_event = 0;
     return;
 }
 
@@ -270,5 +271,17 @@ void BufferedSpi::prime(void)
 void BufferedSpi::attach(Callback<void()> func, IrqType type)
 {
     _cbs[type] = func;
+}
+
+void BufferedSpi::sigio(Callback<void()> func) {
+    core_util_critical_section_enter();
+    _sigio_cb = func;
+    if (_sigio_cb) {
+        if (_sigio_event == 1) {
+            _sigio_cb();
+            _sigio_event = 0;
+        }
+    }
+    core_util_critical_section_exit();
 }
 
