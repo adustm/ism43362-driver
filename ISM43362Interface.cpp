@@ -32,9 +32,10 @@ ISM43362Interface::ISM43362Interface(PinName mosi, PinName miso, PinName sclk, P
     : _ism(mosi, miso, sclk, nss, reset, datareadypin, wakeup, debug)
 {
     memset(_ids, 0, sizeof(_ids));
+    memset(_socket_obj, 0, sizeof(_socket_obj));
     memset(_cbs, 0, sizeof(_cbs));
 
-    _ism.attach(this, &ISM43362Interface::event); // not applicable in SPI ? to be removed ?
+   // _ism.attach(this, &ISM43362Interface::event);
 }
 
 int ISM43362Interface::connect(const char *ssid, const char *pass, nsapi_security_t security,
@@ -167,6 +168,10 @@ struct ISM43362_socket {
     nsapi_protocol_t proto;
     bool connected;
     SocketAddress addr;
+    Thread thread_read_socket;
+    char read_data[4];
+    uint32_t read_data_size;
+    Mutex read_mutex;
 };
 
 int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
@@ -178,6 +183,7 @@ int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
         if (!_ids[i]) {
             id = i;
             _ids[i] = true;
+            _socket_obj[i] = (uint32_t)*handle;
             break;
         }
     }
@@ -194,6 +200,7 @@ int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
     socket->id = id;
     socket->proto = proto;
     socket->connected = false;
+    socket->read_mutex.lock();
     *handle = socket;
     return 0;
 }
@@ -210,6 +217,9 @@ int ISM43362Interface::socket_close(void *handle)
 
     socket->connected = false;
     _ids[socket->id] = false;
+    _socket_obj[socket->id] = 0;
+    socket->thread_read_socket.terminate();
+
     delete socket;
     return err;
 }
@@ -229,15 +239,42 @@ int ISM43362Interface::socket_connect(void *handle, const SocketAddress &addr)
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
     _ism.setTimeout(ISM43362_MISC_TIMEOUT);
 
+    socket->read_mutex.lock();
     const char *proto = (socket->proto == NSAPI_UDP) ? "1" : "0";
     if (!_ism.open(proto, socket->id, addr.get_ip_address(), addr.get_port())) {
+        socket->read_mutex.unlock();
         return NSAPI_ERROR_DEVICE_ERROR;
     }
-    
+
+    socket->read_mutex.unlock();
     socket->connected = true;
     return 0;
 }
+
+void ISM43362Interface::socket_check_read()
+{
     
+    while (1) {
+        for (int i = 0; i < ISM43362_SOCKET_COUNT; i++) {
+            if (_socket_obj[i] != 0) {
+                struct ISM43362_socket *socket = (struct ISM43362_socket *)_socket_obj[i];
+                socket->read_mutex.lock();
+                /* check if something to read */
+                if (_ism.check_recv_status(socket->id, socket->read_data, 4)) {
+                    socket->read_mutex.unlock();
+                    /* There is something to read in this socket : launch the event */
+                    if (_cbs[socket->id].callback) {
+                        _cbs[socket->id].callback(_cbs[socket->id].data);
+                    }
+                } else {
+                    socket->read_mutex.unlock();
+                }
+                wait_ms(100);
+            }
+        }
+    }
+}
+
 int ISM43362Interface::socket_accept(void *server, void **socket, SocketAddress *addr)
 {
     return NSAPI_ERROR_UNSUPPORTED;
@@ -246,25 +283,42 @@ int ISM43362Interface::socket_accept(void *server, void **socket, SocketAddress 
 int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size)
 {
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
+    socket->read_mutex.lock();
     _ism.setTimeout(ISM43362_SEND_TIMEOUT);
- 
+
     if (!_ism.send(socket->id, data, size)) {
+        socket->read_mutex.unlock();
         return NSAPI_ERROR_DEVICE_ERROR;
     }
- 
+
+    socket->read_mutex.unlock();
     return size;
 }
 
 int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
 {
+    int32_t recv = 0;
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
+    socket->read_mutex.lock();
     _ism.setTimeout(ISM43362_RECV_TIMEOUT);
- 
-    int32_t recv = _ism.recv(socket->id, data, size);
+
+    if (socket->read_data_size != 0) {
+        char *ptr = (char *)data;
+        for (int i = 0; i < 4; i++) {
+            *ptr++ = socket->read_data[i];
+        }
+        recv = _ism.recv(socket->id, (char *)(data + 4), (size - 4));
+        
+        memset(socket->read_data, 0, sizeof(socket->read_data));
+        socket->read_data_size = 0;
+    } else {
+        recv = _ism.recv(socket->id, data, size);
+    }
+    socket->read_mutex.unlock();
+    
     if (recv < 0) {
         return NSAPI_ERROR_WOULD_BLOCK;
     }
- 
     return recv;
 }
 
@@ -272,9 +326,12 @@ int ISM43362Interface::socket_sendto(void *handle, const SocketAddress &addr, co
 {
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
 
+    socket->read_mutex.lock();
+    
     if (socket->connected && socket->addr != addr) {
         _ism.setTimeout(ISM43362_MISC_TIMEOUT);
         if (!_ism.close(socket->id)) {
+            socket->read_mutex.unlock();
             return NSAPI_ERROR_DEVICE_ERROR;
         }
         socket->connected = false;
@@ -283,11 +340,12 @@ int ISM43362Interface::socket_sendto(void *handle, const SocketAddress &addr, co
     if (!socket->connected) {
         int err = socket_connect(socket, addr);
         if (err < 0) {
+            socket->read_mutex.unlock();
             return err;
         }
         socket->addr = addr;
     }
-    
+    socket->read_mutex.unlock();
     return socket_send(socket, data, size);
 }
 
@@ -304,9 +362,21 @@ int ISM43362Interface::socket_recvfrom(void *handle, SocketAddress *addr, void *
 
 void ISM43362Interface::socket_attach(void *handle, void (*callback)(void *), void *data)
 {
-    struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;    
+    struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;   
     _cbs[socket->id].callback = callback;
     _cbs[socket->id].data = data;
+    /* Start a background thread to check if datas are available on the wifi module */
+    if (callback != NULL) {
+        memset(socket->read_data, 0, sizeof(socket->read_data));
+        socket->read_data_size = 0;
+//        void (ISM43362Interface::*ptr_function)(void *) = &ISM43362Interface::socket_check_read;
+//        socket->thread_read_socket.start(Callback<void (void *)>(ptr_function, (void *)socket)); // how to pass socket param ?, socket);
+       // void (*ptr_function)(void *) = &ISM43362Interface::socket_check_read;
+        //socket->thread_read_socket.start(callback(ISM43362Interface::socket_check_read()));//, socket); // how to pass socket param ?, socket);
+//        socket->thread_read_socket.start(Callback<R ()>(ISM43362Interface::socket_check_read()));//, socket); // how to pass socket param ?, socket);
+        socket->thread_read_socket.start(socket_check_read());//, socket); // how to pass socket param ?, socket);
+        //socket->thread_read_socket.start(ISM43362Interface::socket_check_read());//, socket); // how to pass socket param ?, socket);
+    }
 }
 
 void ISM43362Interface::event() {

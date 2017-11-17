@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include <string.h>
 #include "ISM43362.h"
 
 ISM43362::ISM43362(PinName mosi, PinName miso, PinName sclk, PinName nss, PinName resetpin, PinName datareadypin, PinName wakeup, bool debug)
@@ -412,12 +412,9 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
         return false;
     }
     /* Start client */
-    if (!(_parser.send("P6=1") && _parser.recv("OK"))) { // LATER : CHECK OK !!
+    if (!(_parser.send("P6=1") && _parser.recv("OK"))) {
         return false;
     }
-//    char tmp[50];
-//    _parser.recv(tmp,50);
-//    printf("result of connection: %s\n", tmp);
     return true;
 }
 
@@ -535,6 +532,36 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
     return total_read;
 }
 
+bool ISM43362::check_recv_status(int id, void *data, uint32_t amount)
+{
+    int read_amount;
+    /* Activate the socket id in the wifi module */
+    if ((id < 0) ||(id > 3)) {
+        return false;
+    }
+    if (!(_parser.send("P0=%d",id) && _parser.recv("OK"))) {
+        return false;
+    }
+
+    /* Change receive timeout */
+    if (!(_parser.send("R2=%d", _timeout) && _parser.recv("OK"))) {
+        return false;
+    }
+    /* Read if data is = "OK\r\n" -> nothing to read, or if data is <> meaining something to read */
+    if (!(_parser.send("R1=%d", amount)&& _parser.recv("OK"))) {
+            return false;
+    }
+    if (!_parser.send("R0")) {
+        return false;
+    }
+    read_amount = _parser.read((char *)data, amount);
+    if ((read_amount != amount) || (strncmp("OK\r\n", (char *)data, 4) == 0)) {
+        return false; /* nothing to read */
+    } else {
+        return true;
+    }
+}
+
 bool ISM43362::close(int id)
 {
     if ((id <0) || (id > 3)) {
@@ -573,7 +600,7 @@ bool ISM43362::writeable()
 
 void ISM43362::attach(Callback<void()> func)
 {
-    /* not applicable with SPI */
+    /* not applicable with SPI api */
 }
 
 bool ISM43362::recv_ap(nsapi_wifi_ap_t *ap)
