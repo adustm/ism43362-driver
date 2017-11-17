@@ -307,7 +307,7 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
         for (int i = 0; i < 4; i++) {
             *ptr++ = socket->read_data[i];
         }
-        recv = _ism.recv(socket->id, (char *)(data + 4), (size - 4));
+        recv = _ism.recv(socket->id, (char *)((uint32_t)data + 4), (size - 4));
         
         memset(socket->read_data, 0, sizeof(socket->read_data));
         socket->read_data_size = 0;
@@ -370,11 +370,13 @@ void ISM43362Interface::socket_attach(void *handle, void (*callback)(void *), vo
         memset(socket->read_data, 0, sizeof(socket->read_data));
         socket->read_data_size = 0;
 //        void (ISM43362Interface::*ptr_function)(void *) = &ISM43362Interface::socket_check_read;
+        uint32_t ptr_function = &ISM43362Interface::socket_check_read;
+        socket->thread_read_socket.start(callback(&ptr_function));
 //        socket->thread_read_socket.start(Callback<void (void *)>(ptr_function, (void *)socket)); // how to pass socket param ?, socket);
        // void (*ptr_function)(void *) = &ISM43362Interface::socket_check_read;
         //socket->thread_read_socket.start(callback(ISM43362Interface::socket_check_read()));//, socket); // how to pass socket param ?, socket);
 //        socket->thread_read_socket.start(Callback<R ()>(ISM43362Interface::socket_check_read()));//, socket); // how to pass socket param ?, socket);
-        socket->thread_read_socket.start(socket_check_read());//, socket); // how to pass socket param ?, socket);
+  //      socket->thread_read_socket.start(callback(socket_check_read));//, socket); // how to pass socket param ?, socket);
         //socket->thread_read_socket.start(ISM43362Interface::socket_check_read());//, socket); // how to pass socket param ?, socket);
     }
 }
