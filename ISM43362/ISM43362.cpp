@@ -102,7 +102,7 @@ extern "C" int32_t ParseNumber(char* ptr, uint8_t* cnt)
 int ISM43362::get_firmware_version()
 {
     if (!(_parser.send("I?") && _parser.recv("ISM43362-M3G-L44-SPI,C3.5.2.3.BETA9,v3.5.2,v1.4.0.rc1,v8.2.1,120000000,Inventek eS-WiFi"))){
-        printf("wrong version number\n");
+        debug("wrong version number\n");
         return -1;
     }
     return (35239);
@@ -156,21 +156,20 @@ bool ISM43362::disconnect(void)
 
 const char *ISM43362::getIPAddress(void)
 {
-    char tmp_ip_buffer[60];
+    char tmp_ip_buffer[60] = {0};
     char *ptr, *ptr2;
     if (!_parser.send("C?")) {
         return 0;
     }
     if (!_parser.read(tmp_ip_buffer, sizeof(tmp_ip_buffer))) {
-        printf("receivedIPAddress: %s\n", tmp_ip_buffer);
         return 0;
     }
 
-    printf("receivedIPAddress: %s\n", tmp_ip_buffer);
+    debug("receivedIPAddress: %s\n", tmp_ip_buffer);
 
     // Get the IP address in the result
-    // TODO : check if the begining of the string is always = "\r\neS-WiFi_AP_C47F51011231,"
-    ptr = strtok((char *)tmp_ip_buffer+2, ",");
+    // TODO : check if the begining of the string is always = "eS-WiFi_AP_C47F51011231,"
+    ptr = strtok((char *)tmp_ip_buffer, ",");
     ptr = strtok(NULL, ",");
     ptr = strtok(NULL, ",");
     ptr = strtok(NULL, ",");
@@ -190,7 +189,7 @@ const char *ISM43362::getMACAddress(void)
     _parser.send("Z5"); 
 
     if (!_parser.read(tmp_mac_buffer, sizeof(tmp_mac_buffer))) {
-        printf("receivedIPAddress: %s", tmp_mac_buffer);
+        debug("receivedIPAddress: %s", tmp_mac_buffer);
         return 0;
     }
     /* Extract the MAC address from the received buffer */
@@ -208,7 +207,7 @@ const char *ISM43362::getGateway()
     _parser.send("C?");
     int res = _parser.read(tmp, 250);
     if (res <0) {
-        printf("receivedGateway: %s", tmp);
+        debug("receivedGateway: %s", tmp);
         return 0;
     }
     /* Extract the Gateway in the received buffer */
@@ -231,7 +230,7 @@ const char *ISM43362::getNetmask()
     _parser.send("C?");
     int res = _parser.read(tmp, 250);
     if (res <0) {
-        printf("receivedNetmask: %s", tmp);
+        debug("receivedNetmask: %s", tmp);
         return 0;
     }
     
@@ -258,7 +257,7 @@ int8_t ISM43362::getRSSI()
     }
     int res = _parser.read(tmp, 25);
     if (res <0) {
-        printf("receivedNetmask: %s", tmp);
+        debug("receivedNetmask: %s", tmp);
         return 0;
     }
     rssi = ParseNumber(tmp+2, NULL);
@@ -393,7 +392,7 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
 { /* TODO : This is the implementation for the client socket, need to check if need to create openserver too */
     //IDs only 0-3
     if((id < 0) ||(id > 3)) {
-        printf("open: wrong id\n");
+        debug("open: wrong id\n");
         return false;
     }
     /* Set communication socket */
@@ -428,7 +427,7 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
     ptr = strchr(tmp,'\r');
     strncpy(ip, tmp, (int)(ptr - tmp));
     *(ip + (ptr - tmp)) = 0;
-    printf("ip of DNSlookup: %s\n", ip);
+    debug("ip of DNSlookup: %s\n", ip);
     return 1;
 }
 
@@ -532,40 +531,40 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
     return total_read;
 }
 
-bool ISM43362::check_recv_status(int id, void *data, uint32_t amount)
+int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
 {
-    int read_amount;
+    uint32_t read_amount;
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
-        return false;
+        return -1;
     }
     if (!(_parser.send("P0=%d",id) && _parser.recv("OK"))) {
-        return false;
+        return -1;
     }
 
     /* Change receive timeout */
     if (!(_parser.send("R2=%d", _timeout) && _parser.recv("OK"))) {
-        return false;
+        return -1;
     }
     /* Read if data is = "OK\r\n" -> nothing to read, or if data is <> meaining something to read */
     if (!(_parser.send("R1=%d", amount)&& _parser.recv("OK"))) {
-            return false;
+            return -1;
     }
     if (!_parser.send("R0")) {
-        return false;
+        return -1;
     }
     read_amount = _parser.read((char *)data, amount);
-    if ((read_amount != amount) || (strncmp("OK\r\n", (char *)data, 4) == 0)) {
-        return false; /* nothing to read */
+    if (strncmp("OK\r\n", (char *)data, 4) == 0) {
+        return 0; /* nothing to read */
     } else {
-        return true;
+        return read_amount;
     }
 }
 
 bool ISM43362::close(int id)
 {
     if ((id <0) || (id > 3)) {
-        printf ("Wrong socket number\n");
+        debug("Wrong socket number\n");
         return false;
     }
     /* Set connection on this socket */

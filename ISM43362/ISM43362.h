@@ -206,8 +206,9 @@ public:
     * @param id socket id
     * @param data placeholder for returned information
     * @param amount size to read for the check
+    * @return amount of read value, or -1 for errors
     */
-    bool check_recv_status(int id, void *data, uint32_t amount);
+    int check_recv_status(int id, void *data, uint32_t amount);
     
     /**
     * Attach a function to call whenever network state has changed

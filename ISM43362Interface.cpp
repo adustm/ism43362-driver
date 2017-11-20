@@ -169,8 +169,8 @@ struct ISM43362_socket {
     bool connected;
     SocketAddress addr;
     Thread thread_read_socket;
-    char read_data[4];
-    uint32_t read_data_size;
+    char read_data[256];
+    volatile uint32_t read_data_size;
     Mutex read_mutex;
 };
 
@@ -256,13 +256,20 @@ void ISM43362Interface::socket_check_read()
             if (_socket_obj[i] != 0) {
                 struct ISM43362_socket *socket = (struct ISM43362_socket *)_socket_obj[i];
                 socket->read_mutex.lock();
-                /* check if something to read */
-                if (_ism.check_recv_status(socket->id, socket->read_data, 4)) {
-                    socket->read_data_size = 4;
-                    socket->read_mutex.unlock();
-                    /* There is something to read in this socket : launch the event */
-                    if (_cbs[socket->id].callback) {
-                        _cbs[socket->id].callback(_cbs[socket->id].data);
+                /* Check if there is something to read for this socket. But if it */
+                /* has already been read : don't read again */
+                if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
+                    /* if no callback is set, no need to read ?*/
+                    int read_amount = _ism.check_recv_status(socket->id, socket->read_data, 256);
+                    if (read_amount > 0) {
+                        socket->read_data_size = read_amount;
+                        socket->read_mutex.unlock();
+                        /* There is something to read in this socket : goto callback if any*/
+                       // if (_cbs[socket->id].callback) {
+                            _cbs[socket->id].callback(_cbs[socket->id].data);
+                       // }
+                    } else {
+                        socket->read_mutex.unlock();
                     }
                 } else {
                     socket->read_mutex.unlock();
@@ -303,10 +310,16 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
 
     if (socket->read_data_size != 0) {
         char *ptr = (char *)data;
-        for (int i = 0; i < 4; i++) {
+        int i=0;
+        while ((i<socket->read_data_size) && (i < size)) {
             *ptr++ = socket->read_data[i];
+            i++;
         }
-        recv = _ism.recv(socket->id, (char *)((uint32_t)data + 4), (size - 4));
+        if (i < size) {
+            recv = i + _ism.recv(socket->id, (char *)((uint32_t)data + socket->read_data_size), (size - socket->read_data_size));
+        } else {
+            recv = size;
+        }
         
         memset(socket->read_data, 0, sizeof(socket->read_data));
         socket->read_data_size = 0;
@@ -334,17 +347,20 @@ int ISM43362Interface::socket_sendto(void *handle, const SocketAddress &addr, co
             return NSAPI_ERROR_DEVICE_ERROR;
         }
         socket->connected = false;
+        _ids[socket->id] = false;
+        _socket_obj[socket->id] = 0;
     }
 
     if (!socket->connected) {
+        socket->read_mutex.unlock(); // will be locked again in socket_connect
         int err = socket_connect(socket, addr);
         if (err < 0) {
-            socket->read_mutex.unlock();
             return err;
         }
         socket->addr = addr;
+    } else {
+        socket->read_mutex.unlock();
     }
-    socket->read_mutex.unlock();
     return socket_send(socket, data, size);
 }
 
@@ -361,7 +377,8 @@ int ISM43362Interface::socket_recvfrom(void *handle, SocketAddress *addr, void *
 
 void ISM43362Interface::socket_attach(void *handle, void (*cb)(void *), void *data)
 {
-    struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;   
+    struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
+    socket->read_mutex.lock();
     _cbs[socket->id].callback = cb;
     _cbs[socket->id].data = data;
     /* Start a background thread to check if datas are available on the wifi module */
@@ -370,6 +387,7 @@ void ISM43362Interface::socket_attach(void *handle, void (*cb)(void *), void *da
         socket->read_data_size = 0;
         socket->thread_read_socket.start(callback(this, &ISM43362Interface::socket_check_read));
     }
+    socket->read_mutex.unlock();
 }
 
 void ISM43362Interface::event() {
