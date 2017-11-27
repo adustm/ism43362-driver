@@ -195,7 +195,15 @@ public:
      * @return number of bytes read or -1 on failure
      */
     int read(char *data, int size);
-
+    /**
+     * Read an array of bytes from the underlying stream
+     * Able to read longer than internal buffer, for 1 only command
+     *
+     * @param data the destination for the read bytes
+     * @param size number of bytes to read
+     * @return number of bytes read or -1 on failure
+     */
+    int read_withoutnss(char *data, int size);
     /**
      * Direct printf to underlying stream
      * @see printf

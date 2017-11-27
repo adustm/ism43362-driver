@@ -332,10 +332,10 @@ int ISM43362::scan(WiFiAccessPoint *res, unsigned limit)
     unsigned cnt = 0, num=0;
     nsapi_wifi_ap_t ap;
     char *ptr;
-    char tmp[350];
+    char tmp[256];
 
     /* Get the list of AP */
-    if (!(_parser.send("F0") && _parser.read(tmp, 350))) {
+    if (!(_parser.send("F0") && _parser.read_withoutnss(tmp, 256))) {
         return NSAPI_ERROR_DEVICE_ERROR;
     }
 

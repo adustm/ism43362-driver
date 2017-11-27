@@ -179,8 +179,11 @@ public:
      *  @param max: optional. = max sieze of the input read
      *  @return The number of bytes read from the SPI port and written to the _rxbuf
      */
+    virtual ssize_t read_no_nss(int max);
     virtual ssize_t read();
     virtual ssize_t read(int max);
+    
+    virtual ssize_t read_1st(int max);
 
     /** Register a callback once any data is ready for sockets
      *  @param func     Function to call on state change

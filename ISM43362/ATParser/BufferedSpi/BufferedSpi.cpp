@@ -194,16 +194,38 @@ ssize_t BufferedSpi::read()
 ssize_t BufferedSpi::read(int max)
 {
     int len = 0;
-    int tmp;
-    // TO DO : add SPI flush ! HAL_SPIEx_FlushRxFifo(&hspi);
-    
+
     disable_nss();
     /* wait for data ready is up */
     while (dataready.read() == 0) {
         // TO DO handle the timeout
     }
-    
+
     enable_nss();
+
+    len = BufferedSpi::read_no_nss(max);
+
+    disable_nss();
+
+    return len;
+}
+
+ssize_t BufferedSpi::read_1st(int max)
+{
+    disable_nss();
+    /* wait for data ready is up */
+    while (dataready.read() == 0) {
+        // TO DO handle the timeout
+    }
+    enable_nss();
+
+    return this->read_no_nss(max);
+}
+
+ssize_t BufferedSpi::read_no_nss(int max)
+{
+    int len = 0;
+    int tmp;
 
     while (dataready.read() == 1) {
         tmp = SPI::write(0);  // dummy write to receive 2 bytes
@@ -229,10 +251,10 @@ ssize_t BufferedSpi::read(int max)
             }
         }
     }
-    disable_nss();
     
     return len;
 }
+
 void BufferedSpi::rxIrq(void)
 {
     // read from the peripheral 
