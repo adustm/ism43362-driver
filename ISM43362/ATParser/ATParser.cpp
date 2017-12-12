@@ -161,7 +161,7 @@ int ATParser::read(char *data, int size)
             return -1;
 
         for ( ; i < min(readsize, sizetoread); i++) {
-            int c = getc();
+            int c = getc(); /* pb here: if server sends datas and not chars... some maybe =0 and some may be negative !!! */
             if (c < 0) {
                 return -1;
             }
@@ -173,7 +173,8 @@ int ATParser::read(char *data, int size)
             break; // no more data to read from the wifi device
         }
     }
-    debug_if(dbg_on, "AT< %s\r\n", data);
+    //debug_if(dbg_on, "AT< %s\r\n", data);
+    debug_if(dbg_on, "AT< read %d datas\r\n", totalreadsize);
     return (totalreadsize) ;
 }
 

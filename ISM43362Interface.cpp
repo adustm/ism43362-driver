@@ -292,6 +292,7 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
     _ism.setTimeout(ISM43362_SEND_TIMEOUT);
 
     if (!_ism.send(socket->id, data, size)) {
+        debug("Socket send failed\rn\n");
         socket->read_mutex.unlock();
         return NSAPI_ERROR_DEVICE_ERROR;
     }

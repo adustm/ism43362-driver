@@ -165,7 +165,7 @@ const char *ISM43362::getIPAddress(void)
         return 0;
     }
 
-    debug("receivedIPAddress: %s\n", tmp_ip_buffer);
+//    debug("receivedIPAddress: %s\n", tmp_ip_buffer);
 
     // Get the IP address in the result
     // TODO : check if the begining of the string is always = "eS-WiFi_AP_C47F51011231,"
@@ -189,7 +189,7 @@ const char *ISM43362::getMACAddress(void)
     _parser.send("Z5"); 
 
     if (!_parser.read(tmp_mac_buffer, sizeof(tmp_mac_buffer))) {
-        debug("receivedIPAddress: %s", tmp_mac_buffer);
+    //    debug("receivedIPAddress: %s", tmp_mac_buffer);
         return 0;
     }
     /* Extract the MAC address from the received buffer */
@@ -427,7 +427,7 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
     ptr = strchr(tmp,'\r');
     strncpy(ip, tmp, (int)(ptr - tmp));
     *(ip + (ptr - tmp)) = 0;
-    debug("ip of DNSlookup: %s\n", ip);
+//    debug("ip of DNSlookup: %s\n", ip);
     return 1;
 }
 
@@ -454,7 +454,7 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
     if ((i < 0) && !_parser.recv("OK")) {
         return false;
     }
-
+//    debug("print S3=%d on the socket %d\n", amount, id);
     return true;
 }
 
@@ -525,8 +525,11 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
             return false;
         }
         read_amount = _parser.read((char *)((uint32_t)data+total_read), amount_to_read);
-	// TODO : chek is read_amount is an error or not
-        total_read += read_amount;
+        if (read_amount == -1) {
+            break;
+        } else {
+            total_read += read_amount;
+        }
     }
     return total_read;
 }
@@ -606,12 +609,13 @@ bool ISM43362::recv_ap(nsapi_wifi_ap_t *ap)
     int sec = 0;
     char tmp[350];
     // TO DO : voir ce qu'envoit le wifi en retour
-    bool ret = _parser.read(tmp, 350); //!!! 350 IS VERY LONG ...
-    /* TODO fill networkaccess points */
-
-    ap->security = sec < 5 ? (nsapi_security_t)sec : NSAPI_SECURITY_UNKNOWN;
-
-    return ret;
+    int ret = _parser.read(tmp, 350); //!!! 350 IS VERY LONG ...
+    if (ret != -1) {
+        /* TODO fill networkaccess points */
+        ap->security = sec < 5 ? (nsapi_security_t)sec : NSAPI_SECURITY_UNKNOWN;
+        return true;
+    }
+    return false;
 }
 
 void ISM43362::reset_module(DigitalOut rstpin)
