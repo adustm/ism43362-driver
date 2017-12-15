@@ -26,6 +26,7 @@
 
 // Firmware version
 #define ISM43362_VERSION 35239 /*C3.5.2.3BETA9 */
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
 // ISM43362Interface implementation
 ISM43362Interface::ISM43362Interface(PinName mosi, PinName miso, PinName sclk, PinName nss, PinName reset, PinName datareadypin, PinName wakeup, bool debug)
@@ -169,7 +170,7 @@ struct ISM43362_socket {
     bool connected;
     SocketAddress addr;
     Thread thread_read_socket;
-    char read_data[256];
+    char read_data[512];
     volatile uint32_t read_data_size;
     Mutex read_mutex;
 };
@@ -260,7 +261,7 @@ void ISM43362Interface::socket_check_read()
                 /* has already been read : don't read again */
                 if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
                     /* if no callback is set, no need to read ?*/
-                    int read_amount = _ism.check_recv_status(socket->id, socket->read_data, 256);
+                    int read_amount = _ism.check_recv_status(socket->id, socket->read_data, 512);
                     if (read_amount > 0) {
                         socket->read_data_size = read_amount;
                         socket->read_mutex.unlock();
@@ -303,22 +304,27 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
 
 int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
 {
-    int32_t recv = 0;
+    int recv = 0;
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
     socket->read_mutex.lock();
     _ism.setTimeout(ISM43362_RECV_TIMEOUT);
 
     if (socket->read_data_size != 0) {
         char *ptr = (char *)data;
-        uint32_t i=0;
-        while ((i<socket->read_data_size) && (i < size)) {
+        int i=0;
+        while ((i < socket->read_data_size) && (i < size)) {
             *ptr++ = socket->read_data[i];
             i++;
         }
-        if (i < size) {
+        /* If UDP : do not read more. the message will not be available anymore */
+        if ((i < size) && (socket->proto == NSAPI_TCP)) {
             recv = i + _ism.recv(socket->id, (char *)((uint32_t)data + socket->read_data_size), (size - socket->read_data_size));
         } else {
-            recv = size;
+            recv = MIN(i, size);
+        }
+        /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
+        if ((recv >= 8) && (strncmp((char *)((uint32_t) data + recv - 8), "\r\nOK\r\n> ", 8)) == 0) {
+            recv -= 8;
         }
         
         memset(socket->read_data, 0, sizeof(socket->read_data));
