@@ -34,7 +34,7 @@
 #else
 #define CR  13
 #endif
-
+#define MIN(a,b) (((a)<(b))?(a):(b))
 // getc/putc handling with timeouts
 int ATParser::putc(char c)
 {
@@ -113,7 +113,7 @@ int ATParser::read_withoutnss(char *data, int size)
             return -1;
         }
 
-        for ( ; i < min(readsize, sizetoread); i++) {
+        for ( ; i < MIN(readsize, sizetoread); i++) {
             int c = getc();
             if (c < 0) {
                 _serial_spi->disable_nss();
@@ -160,7 +160,7 @@ int ATParser::read(char *data, int size)
         if ( readsize < 0)
             return -1;
 
-        for ( ; i < min(readsize, sizetoread); i++) {
+        for ( ; i < MIN(readsize, sizetoread); i++) {
             int c = getc();
             if (c < 0) {
                 return -1;

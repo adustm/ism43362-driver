@@ -26,7 +26,7 @@ ISM43362::ISM43362(PinName mosi, PinName miso, PinName sclk, PinName nss, PinNam
     uint8_t count = 0;
     
     DigitalOut wakeup_pin(wakeup);
-    ISM43362::setTimeout((uint32_t)500);
+    ISM43362::setTimeout((uint32_t)5000);
     _bufferspi.format(16, 0); /* 16bits, ploarity low, phase 1Edge, master mode */
     _bufferspi.frequency(10000000); /* up to 20 MHz */
 
@@ -446,11 +446,11 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
         return false;
     }
     /* set Write Transport Packet Size */
-    int i = _parser.printf("S3=%d\r", (int)(amount + 1));
+    int i = _parser.printf("S3=%d\r", (int)amount);
     if (i < 0) {
         return false;
     }
-    i = _parser.write((const char *)data, (amount + 1), i);
+    i = _parser.write((const char *)data, amount, i);
     if ((i < 0) && !_parser.recv("OK")) {
         return false;
     }
@@ -518,14 +518,23 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
         }
         /* Set the amount of datas to read */
         if (!(_parser.send("R1=%d", amount_to_read) && _parser.recv("OK"))) {
-            return false;
+            return -1;
         }
         /* Now read */
         if (!_parser.send("R0")) {
-            return false;
+            return -1;
         }
         read_amount = _parser.read((char *)((uint32_t)data+total_read), amount_to_read);
-	// TODO : chek is read_amount is an error or not
+        if (read_amount <0) {
+            return -1;
+        } else if (read_amount < amount_to_read) {
+            total_read += read_amount;
+            /* reception is complete: remove the last 8 chars that are : \r\nOK\r\n> */
+            if ( total_read >=8) {
+                total_read -= 8;
+            }
+            return total_read;
+        }
         total_read += read_amount;
     }
     return total_read;
