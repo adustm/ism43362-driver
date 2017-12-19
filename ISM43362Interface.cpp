@@ -311,7 +311,7 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
 
     if (socket->read_data_size != 0) {
         char *ptr = (char *)data;
-        int i=0;
+        uint32_t i=0;
         while ((i < socket->read_data_size) && (i < size)) {
             *ptr++ = socket->read_data[i];
             i++;

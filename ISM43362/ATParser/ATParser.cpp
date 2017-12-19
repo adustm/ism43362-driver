@@ -327,7 +327,7 @@ restart:
         //
         // We keep trying the match until we succeed or some other error
         // derails us.
-        uint32_t j = 0;
+        int j = 0;
 
         while (true) {
             // Recieve next character
@@ -380,8 +380,8 @@ restart:
             }
 
             // We only succeed if all characters in the response are matched
-            if (count == (int)j) {
-                debug_if(dbg_on, "AT= %s\n", _buffer+offset);
+            if (count == j) {
+                debug_if(dbg_on, "AT= %s\n", _buffer + offset);
                 // Reuse the front end of the buffer
                 memcpy(_buffer, response, i);
                 _buffer[i] = 0;
@@ -396,7 +396,7 @@ restart:
 
             // Clear the buffer when we hit a newline or ran out of space
             // running out of space usually means we ran into binary data
-            if (c == '\n' || j+1 >= _buffer_size - offset) {
+            if ((c == '\n') || (j + 1 >= _buffer_size - offset)) {
 
                 debug_if(dbg_on, "AT< %s", _buffer+offset);
                 j = 0;
