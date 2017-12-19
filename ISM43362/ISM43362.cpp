@@ -614,13 +614,15 @@ bool ISM43362::recv_ap(nsapi_wifi_ap_t *ap)
 {
     int sec = 0;
     char tmp[350];
-    // TO DO : voir ce qu'envoit le wifi en retour
-    bool ret = _parser.read(tmp, 350); //!!! 350 IS VERY LONG ...
-    /* TODO fill networkaccess points */
-
-    ap->security = sec < 5 ? (nsapi_security_t)sec : NSAPI_SECURITY_UNKNOWN;
-
-    return ret;
+    int ret = _parser.read(tmp, 350);
+    if (ret != -1) {
+        /* TODO fill networkaccess points */
+        if (ap != NULL) {
+            ap->security = sec < 5 ? (nsapi_security_t)sec : NSAPI_SECURITY_UNKNOWN;
+        }
+        return true;
+    }
+    return false;
 }
 
 void ISM43362::reset_module(DigitalOut rstpin)
