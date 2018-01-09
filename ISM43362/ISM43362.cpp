@@ -502,8 +502,8 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
     if (!(_parser.send("R2=%d", _timeout) && _parser.recv("OK"))) {
         return false;
     }
-    int nbcalls = (amount / _parser.get_size());
-    if (amount % _parser.get_size()) {
+    int nbcalls = (amount / (_parser.get_size() - 2));
+    if (amount %( _parser.get_size() - 2)) {
         nbcalls++;
     }
     /* Need to handle several calls to the Read Transport command in case
@@ -512,9 +512,9 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
     int total_read = 0, amount_to_read;
     for (i=0; i < nbcalls; i++) {
         if ((nbcalls > 1) && ( i != (nbcalls - 1))) {
-            amount_to_read = _parser.get_size();
+            amount_to_read = _parser.get_size() - 2;
         } else {
-            amount_to_read = amount - (i * _parser.get_size());
+            amount_to_read = amount - (i * (_parser.get_size() - 2));
         }
         /* Set the amount of datas to read */
         if (!(_parser.send("R1=%d", amount_to_read) && _parser.recv("OK"))) {
