@@ -391,7 +391,7 @@ void ISM43362Interface::socket_attach(void *handle, void (*cb)(void *), void *da
     if (cb != NULL) {
         memset(socket->read_data, 0, sizeof(socket->read_data));
         socket->read_data_size = 0;
-        socket->thread_read_socket.start(callback(this, &ISM43362Interface::socket_check_read));
+//        socket->thread_read_socket.start(callback(this, &ISM43362Interface::socket_check_read));
     }
     socket->read_mutex.unlock();
 }
