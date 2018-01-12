@@ -173,7 +173,7 @@ int ATParser::read(char *data, int size)
             break; // no more data to read from the wifi device
         }
     }
-    debug_if(dbg_on, "AT< %s\r\n", data);
+    debug_if(dbg_on, "AT<< %d BYTES\r\n", totalreadsize);
     return (totalreadsize) ;
 }
 
@@ -396,9 +396,13 @@ restart:
 
             // Clear the buffer when we hit a newline or ran out of space
             // running out of space usually means we ran into binary data
-            if ((c == '\n') || (j + 1 >= _buffer_size - offset)) {
+            if ((c == '\n') ) {
+                debug_if(dbg_on, "New line AT<<< %s", _buffer+offset);
+                j = 0;
+            }
+            if ((j + 1 >= (_buffer_size - offset))) {
 
-                debug_if(dbg_on, "AT< %s", _buffer+offset);
+                debug_if(dbg_on, "Out of space AT<<< %s, j=%d", _buffer+offset, j);
                 j = 0;
             }
         }
@@ -502,7 +506,7 @@ bool ATParser::process_oob()
         if (i+1 >= _buffer_size ||
             strcmp(&_buffer[i-_delim_size], _delimiter) == 0) {
 
-            debug_if(dbg_on, "AT< %s", _buffer);
+            debug_if(dbg_on, "AT<<<< %s", _buffer);
             i = 0;
         }
     }
