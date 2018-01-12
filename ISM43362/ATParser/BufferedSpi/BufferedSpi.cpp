@@ -54,13 +54,13 @@ void BufferedSpi::format(int bits, int mode)
 void BufferedSpi::disable_nss()
 {
     nss = 1;
-    wait_ms(10);
+    wait_us(15);
 }
 
 void BufferedSpi::enable_nss()
 {
     nss = 0;
-    wait_ms(10);
+    wait_us(15);
 }
 
 int BufferedSpi::readable(void)
