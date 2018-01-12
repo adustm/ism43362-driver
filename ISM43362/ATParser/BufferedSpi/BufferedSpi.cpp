@@ -212,6 +212,7 @@ ssize_t BufferedSpi::read(int max)
 
 ssize_t BufferedSpi::read_1st(int max)
 {
+    debug_if(true, "READ 1ST !!!!! \r\n");
     disable_nss();
     /* wait for data ready is up */
     while (dataready.read() == 0) {
@@ -251,7 +252,8 @@ ssize_t BufferedSpi::read_no_nss(int max)
             }
         }
     }
-    
+    debug_if(true, "SPI READ %d BYTES\r\n", len);
+
     return len;
 }
 
@@ -268,13 +270,16 @@ void BufferedSpi::rxIrq(void)
 void BufferedSpi::txIrq(void)
 { /* write everything available in the _txbuffer */
     int value = 0;
+    int dbg_cnt = 0;
     while (_txbuf.available() && (_txbuf.getNbAvailable()>0)) {
         value = _txbuf.get();
         if (_txbuf.available() && ((_txbuf.getNbAvailable()%2)!=0)) {
             value |= ((_txbuf.get()<<8)&0XFF00);
             SPI::write(value);
+            dbg_cnt++;
         }
     }
+    debug_if(true, "SPI Sent %d BYTES\r\n", 2*dbg_cnt);
     // disable the TX interrupt when there is nothing left to send
     BufferedSpi::attach(NULL, BufferedSpi::TxIrq);
     // trigger callback if necessary
