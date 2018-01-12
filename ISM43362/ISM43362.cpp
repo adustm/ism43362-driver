@@ -434,6 +434,7 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
 bool ISM43362::send(int id, const void *data, uint32_t amount)
 {
     // TODO CHECK SIZE NOT > txbuf size
+    printf("ISM43362 send%d\r\n", amount);
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return false;
@@ -451,7 +452,11 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
         return false;
     }
     i = _parser.write((const char *)data, amount, i);
-    if ((i < 0) && !_parser.recv("OK")) {
+    if (i < 0) {
+        return false;
+    }
+
+    if (!_parser.recv("OK")) {
         return false;
     }
 
@@ -462,6 +467,8 @@ void ISM43362::_packet_handler()
 {
     int id;
     uint32_t amount;
+
+    printf("ISM43362 _packet_handler\r\n");
 
     // parse out the packet
     if (!_parser.recv(",%d,%d:", &id, &amount)) {
@@ -482,6 +489,8 @@ void ISM43362::_packet_handler()
         free(packet);
         return;
     }
+    printf("%d BYTES\r\n", amount);
+
 
     // append to packet list
     *_packets_end = packet;
@@ -490,6 +499,8 @@ void ISM43362::_packet_handler()
 
 int32_t ISM43362::recv(int id, void *data, uint32_t amount)
 {
+    printf("ISM43362 req recv=%d\r\n", amount);
+
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return false;
@@ -533,16 +544,20 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
             if ( total_read >=8) {
                 total_read -= 8;
             }
+            printf("ISM43362 -8 total_read=%d\r\n", total_read);
             return total_read;
         }
         total_read += read_amount;
     }
+    printf("ISM43362 total_read=%d\r\n", total_read);
+
     return total_read;
 }
 
 int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
 {
     uint32_t read_amount;
+    printf("ISM43362 req check_recv_status=%d\r\n", amount);
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return -1;
@@ -566,6 +581,7 @@ int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
     if (strncmp("OK\r\n", (char *)data, 4) == 0) {
         return 0; /* nothing to read */
     } else {
+        printf("ISM43362 read_amount=%d\r\n", read_amount);
         return read_amount;
     }
 }

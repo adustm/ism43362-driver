@@ -294,6 +294,7 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
 
     if (!_ism.send(socket->id, data, size)) {
         socket->read_mutex.unlock();
+        printf("socket_send ERROR\r\n");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
     _socket_obj[socket->id] = (uint32_t)socket;
@@ -350,6 +351,7 @@ int ISM43362Interface::socket_sendto(void *handle, const SocketAddress &addr, co
         _ism.setTimeout(ISM43362_MISC_TIMEOUT);
         if (!_ism.close(socket->id)) {
             socket->read_mutex.unlock();
+            printf("socket_send ERROR\r\n");
             return NSAPI_ERROR_DEVICE_ERROR;
         }
         socket->connected = false;
