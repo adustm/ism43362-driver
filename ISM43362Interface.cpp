@@ -271,9 +271,9 @@ void ISM43362Interface::socket_check_read()
                         socket->read_data_size = read_amount;
                         socket->read_mutex.unlock();
                         /* There is something to read in this socket : goto callback if any*/
-                       // if (_cbs[socket->id].callback) {
+                       if (_cbs[socket->id].callback) {
                             _cbs[socket->id].callback(_cbs[socket->id].data);
-                       // }
+                       }
                     } else {
                         socket->read_mutex.unlock();
                     }
