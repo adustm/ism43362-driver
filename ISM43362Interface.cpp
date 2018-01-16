@@ -317,6 +317,7 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
     _ism.setTimeout(ISM43362_RECV_TIMEOUT);
 
     debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
+
     if (socket->read_data_size != 0) {
         debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
         char *ptr = (char *)data;
@@ -326,6 +327,7 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
             i++;
         }
         debug_if(ism_debug, "Copied i bytes=%d, vs %d requestd\r\n", i, size);
+
         /* If UDP : do not read more. the message will not be available anymore */
         if ((i < size) && (socket->proto == NSAPI_TCP)) {
             recv = i + _ism.recv(socket->id, (char *)((uint32_t)data + socket->read_data_size), (size - socket->read_data_size));
@@ -335,10 +337,23 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
         /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
         if ((recv >= 8) && (strncmp((char *)((uint32_t) data + recv - 8), "\r\nOK\r\n> ", 8)) == 0) {
             recv -= 8;
+
+        if (i >= socket->read_data_size) {
+            /* All the storeed data has been read, reset buffer */
+            memset(socket->read_data, 0, sizeof(socket->read_data));
+            socket->read_data_size = 0;
+            debug_if(ism_debug, "Copied i bytes=%d, vs %d requestd\r\n", i, size);
+        } else { /*  i < size */
+            /*  In case there is remaining data in buffer, update socket content
+             *  *  For now by shift copy of all data (not very efficient to be
+             *  *  revised */
+            while (i < socket->read_data_size) {
+                socket->read_data[i - size] = socket->read_data[i];
+                i++;
+            }
+            socket->read_data_size -= size;
+            debug_if(ism_debug, "New socket->read_data_sizes=%d\r\n", socket->read_data_size);
         }
-        
-        memset(socket->read_data, 0, sizeof(socket->read_data));
-        socket->read_data_size = 0;
     } else {
         recv = _ism.recv(socket->id, data, size);
     }
