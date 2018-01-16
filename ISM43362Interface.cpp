@@ -334,9 +334,6 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
         } else {
             recv = MIN(i, size);
         }
-        /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
-        if ((recv >= 8) && (strncmp((char *)((uint32_t) data + recv - 8), "\r\nOK\r\n> ", 8)) == 0) {
-            recv -= 8;
 
         if (i >= socket->read_data_size) {
             /* All the storeed data has been read, reset buffer */

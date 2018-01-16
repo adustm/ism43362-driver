@@ -591,6 +591,10 @@ int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
         debug_if(ism_debug, "ISM43362nothing to read=%d\r\n", read_amount);
         return 0; /* nothing to read */
     } else {
+        /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
+        if ((read_amount >= 8) && (strncmp((char *)((uint32_t) data + read_amount - 8), "\r\nOK\r\n> ", 8)) == 0) {
+            read_amount -= 8;
+        }
         debug_if(ism_debug, "ISM43362 read_amount=%d\r\n", read_amount);
         return read_amount;
     }
