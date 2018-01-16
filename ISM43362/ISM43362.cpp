@@ -545,13 +545,17 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
         } else if (read_amount < amount_to_read) {
             total_read += read_amount;
             /* reception is complete: remove the last 8 chars that are : \r\nOK\r\n> */
-            if ( total_read >=8) {
-                total_read -= 8;
+            if ( total_read >=6) {
+                total_read -= 6;
             }
             debug_if(ism_debug, "ISM43362 -6 total_read=%d\r\n", total_read);
             return total_read;
         }
         total_read += read_amount;
+        /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
+        if ((total_read >= 6) && (strncmp((char *)((uint32_t) data + total_read - 6), "OK\r\n> ", 6)) == 0) {
+            total_read -= 6;
+        }
     }
     debug_if(ism_debug, "ISM43362 total_read=%d\r\n", total_read);
 
