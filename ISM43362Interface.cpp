@@ -18,6 +18,9 @@
 #include "ISM43362Interface.h"
 #include "mbed_debug.h"
 
+// ao activate  / de-activate debug
+#define ism_debug false
+
 // Various timeouts for different ISM43362 operations
 #define ISM43362_CONNECT_TIMEOUT 15000 /* milliseconds */
 #define ISM43362_SEND_TIMEOUT    500   /* milliseconds */
@@ -256,7 +259,9 @@ void ISM43362Interface::socket_check_read()
         for (int i = 0; i < ISM43362_SOCKET_COUNT; i++) {
             if (_socket_obj[i] != 0) {
                 struct ISM43362_socket *socket = (struct ISM43362_socket *)_socket_obj[i];
+                debug_if(ism_debug, "socket_check_read, checking sock i=%d\r\n");
                 socket->read_mutex.lock();
+                debug_if(ism_debug, "socket_check_read, took mutex\r\n");
                 /* Check if there is something to read for this socket. But if it */
                 /* has already been read : don't read again */
                 if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
@@ -294,7 +299,7 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
 
     if (!_ism.send(socket->id, data, size)) {
         socket->read_mutex.unlock();
-        printf("socket_send ERROR\r\n");
+        debug_if(ism_debug, "socket_send ERROR\r\n");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
     _socket_obj[socket->id] = (uint32_t)socket;
@@ -310,13 +315,16 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
     socket->read_mutex.lock();
     _ism.setTimeout(ISM43362_RECV_TIMEOUT);
 
+    debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
     if (socket->read_data_size != 0) {
+        debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
         char *ptr = (char *)data;
         uint32_t i=0;
         while ((i < socket->read_data_size) && (i < size)) {
             *ptr++ = socket->read_data[i];
             i++;
         }
+        debug_if(ism_debug, "Copied i bytes=%d, vs %d requestd\r\n", i, size);
         /* If UDP : do not read more. the message will not be available anymore */
         if ((i < size) && (socket->proto == NSAPI_TCP)) {
             recv = i + _ism.recv(socket->id, (char *)((uint32_t)data + socket->read_data_size), (size - socket->read_data_size));
@@ -351,7 +359,7 @@ int ISM43362Interface::socket_sendto(void *handle, const SocketAddress &addr, co
         _ism.setTimeout(ISM43362_MISC_TIMEOUT);
         if (!_ism.close(socket->id)) {
             socket->read_mutex.unlock();
-            printf("socket_send ERROR\r\n");
+            debug_if(ism_debug, "socket_send ERROR\r\n");
             return NSAPI_ERROR_DEVICE_ERROR;
         }
         socket->connected = false;
