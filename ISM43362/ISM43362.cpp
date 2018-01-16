@@ -16,6 +16,10 @@
  */
 #include <string.h>
 #include "ISM43362.h"
+#include "mbed_debug.h"
+
+// ao activate  / de-activate debug
+#define ism_debug true
 
 ISM43362::ISM43362(PinName mosi, PinName miso, PinName sclk, PinName nss, PinName resetpin, PinName datareadypin, PinName wakeup, bool debug)
     : _bufferspi(mosi, miso, sclk, nss, datareadypin), _parser(_bufferspi), _resetpin(resetpin),
@@ -165,8 +169,6 @@ const char *ISM43362::getIPAddress(void)
         return 0;
     }
 
-    debug("receivedIPAddress: %s\n", tmp_ip_buffer);
-
     // Get the IP address in the result
     // TODO : check if the begining of the string is always = "eS-WiFi_AP_C47F51011231,"
     ptr = strtok((char *)tmp_ip_buffer, ",");
@@ -178,6 +180,8 @@ const char *ISM43362::getIPAddress(void)
     ptr2 = strtok(NULL, ",");
     if (ptr == NULL) return 0;
     strncpy(_ip_buffer, ptr , ptr2-ptr);
+
+    debug("receivedIPAddress: %s\n", tmp_ip_buffer);
 
     return _ip_buffer;
 }
@@ -434,7 +438,7 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
 bool ISM43362::send(int id, const void *data, uint32_t amount)
 {
     // TODO CHECK SIZE NOT > txbuf size
-    printf("ISM43362 send%d\r\n", amount);
+    debug_if(ism_debug, "ISM43362 send%d\r\n", amount);
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return false;
@@ -468,7 +472,7 @@ void ISM43362::_packet_handler()
     int id;
     uint32_t amount;
 
-    printf("ISM43362 _packet_handler\r\n");
+    debug_if(ism_debug, "ISM43362 _packet_handler\r\n");
 
     // parse out the packet
     if (!_parser.recv(",%d,%d:", &id, &amount)) {
@@ -489,7 +493,7 @@ void ISM43362::_packet_handler()
         free(packet);
         return;
     }
-    printf("%d BYTES\r\n", amount);
+    debug_if(ism_debug, "%d BYTES\r\n", amount);
 
 
     // append to packet list
@@ -499,7 +503,7 @@ void ISM43362::_packet_handler()
 
 int32_t ISM43362::recv(int id, void *data, uint32_t amount)
 {
-    printf("ISM43362 req recv=%d\r\n", amount);
+    debug_if(ism_debug, "ISM43362 req recv=%d\r\n", amount);
 
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
@@ -544,12 +548,12 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
             if ( total_read >=8) {
                 total_read -= 8;
             }
-            printf("ISM43362 -8 total_read=%d\r\n", total_read);
+            debug_if(ism_debug, "ISM43362 -6 total_read=%d\r\n", total_read);
             return total_read;
         }
         total_read += read_amount;
     }
-    printf("ISM43362 total_read=%d\r\n", total_read);
+    debug_if(ism_debug, "ISM43362 total_read=%d\r\n", total_read);
 
     return total_read;
 }
@@ -557,7 +561,7 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
 int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
 {
     uint32_t read_amount;
-    printf("ISM43362 req check_recv_status=%d\r\n", amount);
+    debug_if(ism_debug, "ISM43362 req check_recv_status=%d\r\n", amount);
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return -1;
@@ -579,9 +583,10 @@ int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
     }
     read_amount = _parser.read((char *)data, amount);
     if (strncmp("OK\r\n", (char *)data, 4) == 0) {
+        debug_if(ism_debug, "ISM43362nothing to read=%d\r\n", read_amount);
         return 0; /* nothing to read */
     } else {
-        printf("ISM43362 read_amount=%d\r\n", read_amount);
+        debug_if(ism_debug, "ISM43362 read_amount=%d\r\n", read_amount);
         return read_amount;
     }
 }
