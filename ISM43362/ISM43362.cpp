@@ -181,6 +181,7 @@ const char *ISM43362::getIPAddress(void)
     if (ptr == NULL) return 0;
     strncpy(_ip_buffer, ptr , ptr2-ptr);
 
+    tmp_ip_buffer[59] = 0;
     debug("receivedIPAddress: %s\n", tmp_ip_buffer);
 
     return _ip_buffer;
