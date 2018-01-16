@@ -22,6 +22,10 @@
 
 #include "BufferedSpi.h"
 #include <stdarg.h>
+#include "mbed_debug.h"
+
+// change to true to add few SPI debug lines
+#define local_debug false
 
 extern "C" int BufferedPrintfC(void *stream, int size, const char* format, va_list arg);
 
@@ -212,7 +216,7 @@ ssize_t BufferedSpi::read(int max)
 
 ssize_t BufferedSpi::read_1st(int max)
 {
-    debug_if(true, "READ 1ST !!!!! \r\n");
+    debug_if(local_debug, "READ 1ST !!!!! \r\n");
     disable_nss();
     /* wait for data ready is up */
     while (dataready.read() == 0) {
@@ -252,7 +256,7 @@ ssize_t BufferedSpi::read_no_nss(int max)
             }
         }
     }
-    debug_if(true, "SPI READ %d BYTES\r\n", len);
+    debug_if(local_debug, "SPI READ %d BYTES\r\n", len);
 
     return len;
 }
@@ -279,7 +283,7 @@ void BufferedSpi::txIrq(void)
             dbg_cnt++;
         }
     }
-    debug_if(true, "SPI Sent %d BYTES\r\n", 2*dbg_cnt);
+    debug_if(local_debug, "SPI Sent %d BYTES\r\n", 2*dbg_cnt);
     // disable the TX interrupt when there is nothing left to send
     BufferedSpi::attach(NULL, BufferedSpi::TxIrq);
     // trigger callback if necessary
