@@ -85,8 +85,10 @@ int ATParser::read_withoutnss(char *data, int size)
     int sizetoread = 0;
     int readsize, i,j;
     int nbcalls=1;
-    this->flush();
     i = 0;
+
+    _bufferMutex.lock();
+    this->flush();
     /* Determine the number of call to spi read */
     /* it should not happen as it is handled in ATParser */
     if (size > _buffer_size) { /* several calls to read are required */
@@ -110,6 +112,7 @@ int ATParser::read_withoutnss(char *data, int size)
 
         if ( readsize < 0) {
             _serial_spi->disable_nss();
+            _bufferMutex.unlock();
             return -1;
         }
 
@@ -117,6 +120,7 @@ int ATParser::read_withoutnss(char *data, int size)
             int c = getc();
             if (c < 0) {
                 _serial_spi->disable_nss();
+                _bufferMutex.unlock();
                 return -1;
             }
             data[i] = c;
@@ -129,6 +133,9 @@ int ATParser::read_withoutnss(char *data, int size)
     }
     _serial_spi->disable_nss();
     debug_if(dbg_on, "AT< %s\r\n", data);
+
+    _bufferMutex.unlock();
+
     return (totalreadsize) ;
 }
 
@@ -138,8 +145,12 @@ int ATParser::read(char *data, int size)
     int sizetoread = 0;
     int readsize, i,j;
     int nbcalls=1;
-    this->flush();
     i = 0;
+
+    _bufferMutex.lock();
+    this->flush();
+
+
     /* Determine the number of call to spi read */
     /* it should not happen as it is handled in ATParser */
     if (size > _buffer_size) { /* several calls to read are required */
@@ -160,12 +171,15 @@ int ATParser::read(char *data, int size)
 
         debug_if(dbg_on, "Avail in SPI %d, vs. to_read=%d \r\n", readsize, sizetoread);
 
-        if ( readsize < 0)
+        if ( readsize < 0) {
+            _bufferMutex.unlock();
             return -1;
+        }
 
         for ( ; i < MIN(readsize, sizetoread); i++) {
             int c = getc();
             if (c < 0) {
+                _bufferMutex.unlock();
                 return -1;
             }
             data[i] = c;
@@ -184,6 +198,8 @@ int ATParser::read(char *data, int size)
     debug_if(dbg_on, "\r\n");
 #endif
 
+    _bufferMutex.unlock();
+
     return (totalreadsize) ;
 }
 
@@ -191,17 +207,21 @@ int ATParser::read(char *data, int size)
 // printf/scanf handling
 int ATParser::vprintf(const char *format, va_list args)
 {
-
+    _bufferMutex.lock();
     if (vsprintf(_buffer, format, args) < 0) {
+        _bufferMutex.unlock();
         return false;
     }
 
     int i = 0;
     for ( ; _buffer[i]; i++) {
         if (putc(_buffer[i]) < 0) {
+            _bufferMutex.unlock();
             return -1;
         }
     }
+    _bufferMutex.unlock();
+
     return i;
 }
 
@@ -213,6 +233,8 @@ int ATParser::vscanf(const char *format, va_list args)
     // We just use the beginning of the buffer to avoid unnecessary allocations.
     int i = 0;
     int offset = 0;
+
+    _bufferMutex.lock();
 
     while (format[i]) {
         if (format[i] == '%' && format[i+1] != '%' && format[i+1] != '*') {
@@ -243,11 +265,13 @@ int ATParser::vscanf(const char *format, va_list args)
     while (true) {
         // Ran out of space
         if (j+1 >= _buffer_size - offset) {
+            _bufferMutex.unlock();
             return false;
         }
         // Recieve next character
         int c = getc();
         if (c < 0) {
+            _bufferMutex.unlock();
             return -1;
         }
         _buffer[offset + j++] = c;
@@ -261,6 +285,7 @@ int ATParser::vscanf(const char *format, va_list args)
         if (count == j) {
             // Store the found results
             vsscanf(_buffer+offset, format, args);
+            _bufferMutex.unlock();
             return j;
         }
     }
@@ -271,8 +296,10 @@ int ATParser::vscanf(const char *format, va_list args)
 bool ATParser::vsend(const char *command, va_list args)
 {
     int i=0, j=0;
+    _bufferMutex.lock();
     // Create and send command
     if (vsprintf(_buffer, command, args) < 0) {
+        _bufferMutex.unlock();
         return false;
     }
     /* get buffer length */
@@ -287,6 +314,7 @@ bool ATParser::vsend(const char *command, va_list args)
     _serial_spi->buffwrite(_buffer, i+j); /* DEBUG : check returned value */
 
     debug_if(dbg_on, "AT> %s\n", _buffer);
+    _bufferMutex.unlock();
     return true;
 }
 
@@ -298,6 +326,7 @@ bool ATParser::vrecv(const char *response, va_list args)
 restart:
     _aborted = false;
     // Iterate through each line in the expected response
+    _bufferMutex.lock();
     while (response[0]) {
         // Since response is const, we need to copy it into our buffer to
         // add the line's null terminator and clobber value-matches with asterisks.
@@ -344,6 +373,7 @@ restart:
             int c = getc();
             if (c < 0) {
                 debug_if(dbg_on, "AT(Timeout)\n");
+                _bufferMutex.unlock();
                 return false;
             }
             // Simplify newlines (borrowed from retarget.cpp)
@@ -371,6 +401,7 @@ restart:
 
                     if (_aborted) {
                         debug_if(dbg_on, "AT(Aborted)\n");
+                        _bufferMutex.unlock();
                         return false;
                     }
                     // oob may have corrupted non-reentrant buffer,
@@ -417,6 +448,8 @@ restart:
             }
         }
     }
+
+    _bufferMutex.unlock();
 
     return true;
 }

@@ -51,6 +51,7 @@ private:
     BufferedSpi *_serial_spi;
     int _buffer_size;
     char *_buffer;
+    Mutex _bufferMutex;
     int _timeout;
 
     // Parsing information
