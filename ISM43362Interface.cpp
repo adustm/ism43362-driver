@@ -259,10 +259,7 @@ void ISM43362Interface::socket_check_read()
         for (int i = 0; i < ISM43362_SOCKET_COUNT; i++) {
             if (_socket_obj[i] != 0) {
                 struct ISM43362_socket *socket = (struct ISM43362_socket *)_socket_obj[i];
-                debug_if(ism_debug, "socket_check_read, checking sock i=%d\r\n");
                 socket->read_mutex.lock();
-                debug_if(ism_debug, "socket_check_read, took mutex\r\n");
-
                 /* Check if there is something to read for this socket. But if it */
                 /* has already been read : don't read again */
                 if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
@@ -270,17 +267,13 @@ void ISM43362Interface::socket_check_read()
                     int read_amount = _ism.check_recv_status(socket->id, socket->read_data, 512);
                     if (read_amount > 0) {
                         socket->read_data_size = read_amount;
-                        socket->read_mutex.unlock();
                         /* There is something to read in this socket : goto callback if any*/
                        if (_cbs[socket->id].callback) {
                             _cbs[socket->id].callback(_cbs[socket->id].data);
                        }
-                    } else {
-                        socket->read_mutex.unlock();
                     }
-                } else {
-                    socket->read_mutex.unlock();
                 }
+                socket->read_mutex.unlock();
             }
         }
         wait_ms(1000);
