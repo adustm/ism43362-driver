@@ -190,13 +190,13 @@ int ATParser::read(char *data, int size)
             break; // no more data to read from the wifi device
         }
     }
-#if TRACE_AT_DATA
+//#if TRACE_AT_DATA
     debug_if(dbg_on, "AT<< %d BYTES\r\n", totalreadsize);
-    for (uint8_t j = 0; j < totalreadsize; j++) {
+    for (uint16_t j = 0; j < totalreadsize; j++) {
          debug_if(dbg_on, "%2X ", data[j]);
     }
     debug_if(dbg_on, "\r\n");
-#endif
+//#endif
 
     _bufferMutex.unlock();
 
