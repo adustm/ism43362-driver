@@ -262,7 +262,7 @@ void ISM43362Interface::socket_check_read()
                 debug_if(ism_debug, "socket_check_read, checking sock i=%d\r\n");
                 socket->read_mutex.lock();
                 debug_if(ism_debug, "socket_check_read, took mutex\r\n");
-                
+
                 /* Check if there is something to read for this socket. But if it */
                 /* has already been read : don't read again */
                 if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
@@ -283,7 +283,7 @@ void ISM43362Interface::socket_check_read()
                 }
             }
         }
-        wait_ms(100);
+        wait_ms(1000);
     }
 }
 
