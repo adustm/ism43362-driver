@@ -148,7 +148,8 @@ int ATParser::read(char *data, int size)
             nbcalls++;
         }
     }
-    
+    debug_if(dbg_on, "ATParser::read %d BYTES\r\n", size);
+
     for (j=0; j< nbcalls; j++) {
         if (j < (nbcalls - 1)) {
             sizetoread = _buffer_size-2;
@@ -156,6 +157,8 @@ int ATParser::read(char *data, int size)
             sizetoread = size - (_buffer_size * j);
         }
         readsize = _serial_spi->read(sizetoread);
+
+        debug_if(dbg_on, "Avail in SPI %d, vs. to_read=%d \r\n", readsize, sizetoread);
 
         if ( readsize < 0)
             return -1;
@@ -173,7 +176,14 @@ int ATParser::read(char *data, int size)
             break; // no more data to read from the wifi device
         }
     }
+#if TRACE_AT_DATA
     debug_if(dbg_on, "AT<< %d BYTES\r\n", totalreadsize);
+    for (uint8_t j = 0; j < totalreadsize; j++) {
+         debug_if(dbg_on, "%2X ", data[j]);
+    }
+    debug_if(dbg_on, "\r\n");
+#endif
+
     return (totalreadsize) ;
 }
 
