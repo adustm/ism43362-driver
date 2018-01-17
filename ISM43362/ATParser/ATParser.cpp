@@ -104,11 +104,8 @@ int ATParser::read_withoutnss(char *data, int size)
         } else {
             sizetoread = size - ((_buffer_size - 2) * j);
         }
-        if (j == 0) {
-            readsize = _serial_spi->read_1st(sizetoread);
-        } else {
-            readsize = _serial_spi->read_no_nss(sizetoread);
-        }
+
+        readsize = _serial_spi->read_no_nss(_buffer_size-2);
 
         if ( readsize < 0) {
             _serial_spi->disable_nss();
