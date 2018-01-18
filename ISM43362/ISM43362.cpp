@@ -543,21 +543,21 @@ int32_t ISM43362::recv(int id, void *data, uint32_t amount)
         read_amount = _parser.read((char *)((uint32_t)data+total_read), amount_to_read);
         if (read_amount <0) {
             return -1;
-        } else if (read_amount < amount_to_read) {
-            total_read += read_amount;
-            /* reception is complete: remove the last 8 chars that are : \r\nOK\r\n> */
-            if ( total_read >=6) {
-                total_read -= 6;
-            }
-            debug_if(ism_debug, "ISM43362 -6 total_read=%d\r\n", total_read);
-            return total_read;
         }
+
+        if (strncmp("OK\r\n> ", (char *)data, 6) == 0) {
+            debug_if(ism_debug, "ISM4336 recv 2nothing to read=%d\r\n", read_amount);
+            return 0; /* nothing to read */
+        }
+
+        /* reception is complete: remove the last 8 chars that are : \r\nOK\r\n> */
         total_read += read_amount;
         /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
-        if ((total_read >= 6) && (strncmp((char *)((uint32_t) data + total_read - 6), "OK\r\n> ", 6)) == 0) {
-            total_read -= 6;
+        if ((total_read >= 8) && (strncmp((char *)((uint32_t) data + total_read - 8), "\r\nOK\r\n> ", 8)) == 0) {
+            total_read -= 8;
         }
     }
+
     debug_if(ism_debug, "ISM43362 total_read=%d\r\n", total_read);
 
     return total_read;
@@ -587,8 +587,8 @@ int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
         return -1;
     }
     read_amount = _parser.read((char *)data, amount);
-    if (strncmp("OK\r\n", (char *)data, 4) == 0) {
-        debug_if(ism_debug, "ISM43362nothing to read=%d\r\n", read_amount);
+    if (strncmp("OK\r\n> ", (char *)data, 6) == 0) {
+        debug_if(ism_debug, "ISM4336 recv 2 nothing to read=%d\r\n", read_amount);
         return 0; /* nothing to read */
     } else {
         /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
