@@ -19,7 +19,7 @@
 #include "mbed_debug.h"
 
 // ao activate  / de-activate debug
-#define ism_debug false
+#define ism_debug true
 
 // Various timeouts for different ISM43362 operations
 #define ISM43362_CONNECT_TIMEOUT 15000 /* milliseconds */
@@ -352,6 +352,9 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
     if (recv < 0) {
         return NSAPI_ERROR_WOULD_BLOCK;
     }
+
+    debug_if(ism_debug, "socket_recv=%d\r\n", socket->read_data_size);
+
     return recv;
 }
 
