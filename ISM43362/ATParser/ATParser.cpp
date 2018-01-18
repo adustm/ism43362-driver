@@ -102,7 +102,7 @@ int ATParser::read_withoutnss(char *data, int size)
         if (j < (nbcalls - 1)) {
             sizetoread = _buffer_size-2;
         } else {
-            sizetoread = size - ((_buffer_size - 2) * j);
+            sizetoread = 8 + size - ((_buffer_size - 2) * j);
         }
 
         readsize = _serial_spi->read_no_nss(_buffer_size-2);
@@ -162,7 +162,7 @@ int ATParser::read(char *data, int size)
         if (j < (nbcalls - 1)) {
             sizetoread = _buffer_size-2;
         } else {
-            sizetoread = size - (_buffer_size * j);
+            sizetoread = 8 + size - (_buffer_size * j); // protocol layer
         }
         readsize = _serial_spi->read(sizetoread);
 
