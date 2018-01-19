@@ -276,7 +276,7 @@ void ISM43362Interface::socket_check_read()
                 socket->read_mutex.unlock();
             }
         }
-        wait_ms(1000);
+        wait_ms(50);
     }
 }
 
