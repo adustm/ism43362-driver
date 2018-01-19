@@ -78,7 +78,7 @@ public:
     * @param timeout timeout of the connection
     * @param delimiter string of characters to use as line delimiters
     */
-    ATParser(BufferedSpi &serial_spi, const char *delimiter = "\r", int buffer_size = 512, int timeout = 8000, bool debug = false) :
+    ATParser(BufferedSpi &serial_spi, const char *delimiter = "\r", int buffer_size = 1440, int timeout = 8000, bool debug = false) :
         _serial_spi(&serial_spi),
         _buffer_size(buffer_size), _in_prev(0), _oobs(NULL)
     {
