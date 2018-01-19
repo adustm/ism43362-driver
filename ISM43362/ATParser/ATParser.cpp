@@ -35,6 +35,9 @@
 #define CR  13
 #endif
 #define MIN(a,b) (((a)<(b))?(a):(b))
+
+#define dbg_on 0
+
 // getc/putc handling with timeouts
 int ATParser::putc(char c)
 {
@@ -187,13 +190,13 @@ int ATParser::read(char *data, int size)
             break; // no more data to read from the wifi device
         }
     }
-//#if TRACE_AT_DATA
+#if TRACE_AT_DATA
     debug_if(dbg_on, "AT<< %d BYTES\r\n", totalreadsize);
     for (uint16_t j = 0; j < totalreadsize; j++) {
          debug_if(dbg_on, "%2X ", data[j]);
     }
     debug_if(dbg_on, "\r\n");
-//#endif
+#endif
 
     _bufferMutex.unlock();
 
