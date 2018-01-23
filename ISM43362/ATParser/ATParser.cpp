@@ -51,15 +51,24 @@ int ATParser::putc(char c)
         if (timer.read_ms() > _timeout) {
             return -1;
         }
+        wait_ms(0.1);
     }
 }
 
 int ATParser::getc()
 {
-    if (_serial_spi->readable()) {
-        return _serial_spi->getc();
+    Timer timer;
+    timer.start();
+
+
+    while (true) {
+        if (_serial_spi->readable()) {
+            return _serial_spi->getc();
+        }
+        if (timer.read_ms() > _timeout) {
+            return -1;
+        }
     }
-    return -1;
 }
 
 void ATParser::flush()
