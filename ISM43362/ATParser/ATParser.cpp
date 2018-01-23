@@ -51,7 +51,6 @@ int ATParser::putc(char c)
         if (timer.read_ms() > _timeout) {
             return -1;
         }
-        wait_ms(0.1);
     }
 }
 
