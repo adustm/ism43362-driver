@@ -176,6 +176,7 @@ struct ISM43362_socket {
     char read_data[1400];
     volatile uint32_t read_data_size;
     Mutex read_mutex;
+    bool waiting_data;
 };
 
 int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
@@ -202,6 +203,7 @@ int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
     socket->id = id;
     socket->proto = proto;
     socket->connected = false;
+    socket->waiting_data = 0;
     *handle = socket;
     return 0;
 }
@@ -264,11 +266,12 @@ void ISM43362Interface::socket_check_read()
                 /* has already been read : don't read again */
                 if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
                     /* if no callback is set, no need to read ?*/
-                    int read_amount = _ism.check_recv_status(socket->id, socket->read_data, sizeof(socket->read_data) - 10);
+                    int read_amount = _ism.check_recv_status(socket->id, socket->read_data, sizeof(socket->read_data));
                     if (read_amount > 0) {
                         socket->read_data_size = read_amount;
-                        /* There is something to read in this socket : goto callback if any*/
-                       if (_cbs[socket->id].callback) {
+                        /* There is something to read in this socket : goto callback if 
+                         * socket is not already being listen to (waiting_data) */
+                       if (_cbs[socket->id].callback && !socket->waiting_data) {
                             _cbs[socket->id].callback(_cbs[socket->id].data);
                        }
                     }
@@ -276,7 +279,7 @@ void ISM43362Interface::socket_check_read()
                 socket->read_mutex.unlock();
             }
         }
-        wait_ms(50);
+        wait_ms(200);
     }
 }
 
@@ -304,58 +307,74 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
 
 int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
 {
-    int recv = 0;
+    unsigned recv = 0, tries = 0;
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
-    socket->read_mutex.lock();
     _ism.setTimeout(ISM43362_RECV_TIMEOUT);
+    char *ptr = (char *)data;
 
+    if (!socket->connected) {
+        return NSAPI_ERROR_CONNECTION_LOST;
+    }
+
+    socket->waiting_data = 1;
+
+    debug_if(ism_debug, "ISM43362Interface::socket_recv requested=%d\r\n", size);
     debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
 
-    if (socket->read_data_size != 0) {
-        debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
-        char *ptr = (char *)data;
-        uint32_t i=0;
-        while ((i < socket->read_data_size) && (i < size)) {
-            *ptr++ = socket->read_data[i];
-            i++;
-        }
-        debug_if(ism_debug, "Copied i bytes=%d, vs %d requestd\r\n", i, size);
-
-        /* If UDP : do not read more. the message will not be available anymore */
-        if ((i < size) && (socket->proto == NSAPI_TCP)) {
-            recv = i + _ism.recv(socket->id, (char *)((uint32_t)data + socket->read_data_size), (size - socket->read_data_size));
-        } else {
-            recv = MIN(i, size);
+    do {
+        if (!socket->connected) {
+            return NSAPI_ERROR_CONNECTION_LOST;
         }
 
-        if (i >= socket->read_data_size) {
-            /* All the storeed data has been read, reset buffer */
-            memset(socket->read_data, 0, sizeof(socket->read_data));
-            socket->read_data_size = 0;
-            debug_if(ism_debug, "Copied i bytes=%d, vs %d requestd\r\n", i, size);
-        } else { /*  i < size */
-            /*  In case there is remaining data in buffer, update socket content
-             *  *  For now by shift copy of all data (not very efficient to be
-             *  *  revised */
-            while (i < socket->read_data_size) {
-                socket->read_data[i - size] = socket->read_data[i];
+        socket->read_mutex.lock();
+        tries++;
+        if (socket->read_data_size != 0) {
+            debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
+            uint32_t i=0;
+            while ((i < socket->read_data_size) && (i < size)) {
+                *ptr++ = socket->read_data[i];
                 i++;
             }
-            socket->read_data_size -= size;
-            debug_if(ism_debug, "New socket->read_data_sizes=%d\r\n", socket->read_data_size);
+            debug_if(ism_debug, "Copied i bytes=%d, vs %d requestd\r\n", i, size);
+
+            recv += i;
+
+            if (i >= socket->read_data_size) {
+                /* All the storeed data has been read, reset buffer */
+                memset(socket->read_data, 0, sizeof(socket->read_data));
+                socket->read_data_size = 0;
+                debug_if(ism_debug, "Socket_recv buffer reset\r\n");
+            } else {
+                /*  In case there is remaining data in buffer, update socket content
+                 *  For now by shift copy of all data (not very efficient to be
+                 *  revised */
+                while (i < socket->read_data_size) {
+                    socket->read_data[i - size] = socket->read_data[i];
+                    i++;
+                }
+                socket->read_data_size -= size;
+                debug_if(ism_debug, "Moved i bytes=%d, vs %d requestd\r\n", i, size);
+                debug_if(ism_debug, "New socket->read_data_sizes=%d\r\n", socket->read_data_size);
+            }
+        } else {
+                debug_if(ism_debug, "Nothing in buffer, tries=%d\r\n", tries);
         }
+
+        socket->read_mutex.unlock();
+
+        if (recv != size) {
+            wait_ms(500);
+        }
+     } while(tries < 3 && recv != size); // loop in case we got some data but not complete yet
+    // Should be better manager with some timeout management
+
+    socket->waiting_data = 0;
+    if (recv > 0) {
+        debug_if(ism_debug, "socket_recv=%d\r\n", socket->read_data_size);
+        return recv;
     } else {
-        recv = _ism.recv(socket->id, data, size);
-    }
-    socket->read_mutex.unlock();
-    
-    if (recv < 0) {
         return NSAPI_ERROR_WOULD_BLOCK;
     }
-
-    debug_if(ism_debug, "socket_recv=%d\r\n", socket->read_data_size);
-
-    return recv;
 }
 
 int ISM43362Interface::socket_sendto(void *handle, const SocketAddress &addr, const void *data, unsigned size)
