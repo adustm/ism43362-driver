@@ -19,7 +19,7 @@
 #include "mbed_debug.h"
 
 // ao activate  / de-activate debug
-#define ism_debug true
+#define ism_debug false
 
 // Various timeouts for different ISM43362 operations
 #define ISM43362_CONNECT_TIMEOUT 15000 /* milliseconds */

@@ -19,7 +19,7 @@
 #include "mbed_debug.h"
 
 // ao activate  / de-activate debug
-#define ism_debug true
+#define ism_debug false
 
 ISM43362::ISM43362(PinName mosi, PinName miso, PinName sclk, PinName nss, PinName resetpin, PinName datareadypin, PinName wakeup, bool debug)
     : _bufferspi(mosi, miso, sclk, nss, datareadypin), _parser(_bufferspi), _resetpin(resetpin),
