@@ -117,7 +117,11 @@ int ATParser::read_withoutnss(char *data, int size)
             sizetoread = 8 + size - ((_buffer_size - 2) * j);
         }
 
-        readsize = _serial_spi->read_no_nss(_buffer_size-2);
+        if ( j == 0) {
+            readsize = _serial_spi->read_1st(_buffer_size-2);
+        } else {
+            readsize = _serial_spi->read_no_nss(_buffer_size-2);
+        }
 
         if ( readsize < 0) {
             _serial_spi->disable_nss();
@@ -329,13 +333,13 @@ bool ATParser::vsend(const char *command, va_list args)
 
 bool ATParser::vrecv(const char *response, va_list args)
 {
+    _bufferMutex.lock();
     /* Read from the wifi module, fill _rxbuffer */
     this->flush();
     _serial_spi->read();
 restart:
     _aborted = false;
     // Iterate through each line in the expected response
-    _bufferMutex.lock();
     while (response[0]) {
         // Since response is const, we need to copy it into our buffer to
         // add the line's null terminator and clobber value-matches with asterisks.

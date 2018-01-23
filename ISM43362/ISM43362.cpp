@@ -160,12 +160,12 @@ bool ISM43362::disconnect(void)
 
 const char *ISM43362::getIPAddress(void)
 {
-    char tmp_ip_buffer[60] = {0};
+    char tmp_ip_buffer[68] = {0};
     char *ptr, *ptr2;
     if (!_parser.send("C?")) {
         return 0;
     }
-    if (!_parser.read(tmp_ip_buffer, sizeof(tmp_ip_buffer))) {
+    if (!_parser.read(tmp_ip_buffer, sizeof(tmp_ip_buffer)-8)) {
         return 0;
     }
 
