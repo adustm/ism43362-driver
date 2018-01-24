@@ -189,18 +189,12 @@ const char *ISM43362::getIPAddress(void)
 
 const char *ISM43362::getMACAddress(void)
 {
-  char tmp_mac_buffer[30];
-
-    _parser.send("Z5"); 
-
-    if (!_parser.read(tmp_mac_buffer, sizeof(tmp_mac_buffer))) {
-        debug("receivedIPAddress: %s", tmp_mac_buffer);
+    if(!(_parser.send("Z5") && _parser.recv("%s\r\nOK", _mac_buffer))) {
+        debug_if(ism_debug,"receivedMacAddress LINE KO: %s", _mac_buffer);
         return 0;
     }
-    /* Extract the MAC address from the received buffer */
-    if (!strncpy(_mac_buffer, tmp_mac_buffer+2, sizeof(_mac_buffer))) {
-        return 0;
-    }
+
+    debug_if(ism_debug,"receivedMacAddress LINE:%s, size=%d\r\n", _mac_buffer, sizeof(_mac_buffer));
 
     return _mac_buffer;
 }
