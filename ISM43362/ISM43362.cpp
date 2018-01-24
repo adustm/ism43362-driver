@@ -160,17 +160,18 @@ bool ISM43362::disconnect(void)
 
 const char *ISM43362::getIPAddress(void)
 {
-    char tmp_ip_buffer[68] = {0};
+    char tmp_ip_buffer[150];
     char *ptr, *ptr2;
-    if (!_parser.send("C?")) {
-        return 0;
-    }
-    if (!_parser.read(tmp_ip_buffer, sizeof(tmp_ip_buffer)-8)) {
+
+    if(!(_parser.send("C?")
+                && _parser.recv("\r\%s\r\nOK",
+                                tmp_ip_buffer))) {
+        debug_if(ism_debug,"getIPAddress LINE KO: %s", tmp_ip_buffer);
         return 0;
     }
 
-    // Get the IP address in the result
-    // TODO : check if the begining of the string is always = "eS-WiFi_AP_C47F51011231,"
+    /* Get the IP address in the result */
+    /* TODO : check if the begining of the string is always = "eS-WiFi_AP_C47F51011231," */
     ptr = strtok((char *)tmp_ip_buffer, ",");
     ptr = strtok(NULL, ",");
     ptr = strtok(NULL, ",");
@@ -182,7 +183,7 @@ const char *ISM43362::getIPAddress(void)
     strncpy(_ip_buffer, ptr , ptr2-ptr);
 
     tmp_ip_buffer[59] = 0;
-    debug("receivedIPAddress: %s\n", _ip_buffer);
+    debug_if(ism_debug,"receivedIPAddress: %s\n", _ip_buffer);
 
     return _ip_buffer;
 }
