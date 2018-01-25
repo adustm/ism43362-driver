@@ -470,67 +470,6 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
     return true;
 }
 
-int32_t ISM43362::recv(int id, void *data, uint32_t amount)
-{
-    debug_if(ism_debug, "ISM43362 req recv=%d\r\n", amount);
-
-    /* Activate the socket id in the wifi module */
-    if ((id < 0) ||(id > 3)) {
-        return false;
-    }
-    if (!(_parser.send("P0=%d",id) && _parser.recv("OK"))) {
-        return false;
-    }
-
-    /* Change receive timeout */
-    if (!(_parser.send("R2=%d", _timeout) && _parser.recv("OK"))) {
-        return false;
-    }
-    int nbcalls = (amount / (_parser.get_size() - 2));
-    if (amount %( _parser.get_size() - 2)) {
-        nbcalls++;
-    }
-    /* Need to handle several calls to the Read Transport command in case
-       the amount to read is longer than the buffer size */
-    int i, read_amount = 0;
-    int total_read = 0, amount_to_read;
-    for (i=0; i < nbcalls; i++) {
-        if ((nbcalls > 1) && ( i != (nbcalls - 1))) {
-            amount_to_read = _parser.get_size() - 2;
-        } else {
-            amount_to_read = amount - (i * (_parser.get_size() - 2));
-        }
-        /* Set the amount of datas to read */
-        if (!(_parser.send("R1=%d", amount_to_read) && _parser.recv("OK"))) {
-            return -1;
-        }
-        /* Now read */
-        if (!_parser.send("R0")) {
-            return -1;
-        }
-        read_amount = _parser.read((char *)((uint32_t)data+total_read), amount_to_read);
-        if (read_amount <0) {
-            return -1;
-        }
-
-        if (strncmp("OK\r\n> ", (char *)data, 6) == 0) {
-            debug_if(ism_debug, "ISM4336 recv 2nothing to read=%d\r\n", read_amount);
-            return 0; /* nothing to read */
-        }
-
-        /* reception is complete: remove the last 8 chars that are : \r\nOK\r\n> */
-        total_read += read_amount;
-        /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
-        if ((total_read >= 8) && (strncmp((char *)((uint32_t) data + total_read - 8), "\r\nOK\r\n> ", 8)) == 0) {
-            total_read -= 8;
-        }
-    }
-
-    debug_if(ism_debug, "ISM43362 total_read=%d\r\n", total_read);
-
-    return total_read;
-}
-
 int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
 {
     uint32_t read_amount;
