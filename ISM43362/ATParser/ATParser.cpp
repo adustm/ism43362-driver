@@ -37,6 +37,7 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 #define dbg_on 0
+//#define TRACE_AT_DATA 1
 
 // getc/putc handling with timeouts
 int ATParser::putc(char c)
