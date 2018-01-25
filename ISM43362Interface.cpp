@@ -250,9 +250,9 @@ int ISM43362Interface::socket_connect(void *handle, const SocketAddress &addr)
         socket->read_mutex.unlock();
         return NSAPI_ERROR_DEVICE_ERROR;
     }
-
-    socket->read_mutex.unlock();
+    _socket_obj[socket->id] = (uint32_t)socket;
     socket->connected = true;
+    socket->read_mutex.unlock();
     return 0;
 }
 
@@ -265,7 +265,7 @@ void ISM43362Interface::socket_check_read()
                 socket->read_mutex.lock();
                 /* Check if there is something to read for this socket. But if it */
                 /* has already been read : don't read again */
-                if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
+                if ((socket->connected) && (socket->read_data_size == 0) && _cbs[socket->id].callback) {
                     /* if no callback is set, no need to read ?*/
                     int read_amount = _ism.check_recv_status(socket->id, socket->read_data);
                     if (read_amount > 0) {
@@ -299,7 +299,6 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
         debug_if(ism_debug, "socket_send ERROR\r\n");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
-    _socket_obj[socket->id] = (uint32_t)socket;
 
     socket->read_mutex.unlock();
     return size;
