@@ -363,6 +363,7 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
         debug_if(ism_debug, "socket_recv=%d\r\n", socket->read_data_size);
         return recv;
     } else {
+        debug_if(ism_debug, "sock_recv returns WOULD BLOCK\r\n");
         return NSAPI_ERROR_WOULD_BLOCK;
     }
 }

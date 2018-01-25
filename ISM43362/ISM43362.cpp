@@ -84,7 +84,7 @@ int ISM43362::get_firmware_version()
     if (!(_parser.send("I?")
                 && _parser.recv("ISM43362-M3G-L44-SPI,C3.5.2.3.BETA9,v3.5.2,v1.4.0.rc1,v8.2.1,120000000,Inventek eS-WiFi\r\n")
                 && check_response())) {
-        debug("wrong version number\n");
+	debug_if(ism_debug,"wrong version number\n");
         return -1;
     }
 
@@ -419,10 +419,11 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
 { /* TODO : This is the implementation for the client socket, need to check if need to create openserver too */
     //IDs only 0-3
     if((id < 0) ||(id > 3)) {
-        debug("open: wrong id\n");
+        debug_if(ism_debug, "open: wrong id\n");
         return false;
     }
     /* Set communication socket */
+    debug_if(ism_debug, "OPEN socket\n");
     if (!(_parser.send("P0=%d", id) && check_response())) {
         return false;
     }
@@ -456,18 +457,19 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
 
     strncpy(ip, tmp, sizeof(tmp));
 
-    debug("ip of DNSlookup: %s\n", ip);
+    debug_if(ism_debug, "ip of DNSlookup: %s\n", ip);
     return 1;
 }
 
 bool ISM43362::send(int id, const void *data, uint32_t amount)
 {
     // TODO CHECK SIZE NOT > txbuf size
-    debug_if(ism_debug, "ISM43362 send%d\r\n", amount);
+
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return false;
     }
+    debug_if(ism_debug, "SEND socket amount %d\n", amount);
     if (!(_parser.send("P0=%d",id) && check_response())) {
         return false;
     }
@@ -533,10 +535,11 @@ int ISM43362::check_recv_status(int id, void *data)
 bool ISM43362::close(int id)
 {
     if ((id <0) || (id > 3)) {
-        debug("Wrong socket number\n");
+        debug_if(ism_debug,"Wrong socket number\n");
         return false;
     }
     /* Set connection on this socket */
+    debug_if(ism_debug,"CLOSE socket id=%d\n", id);
     if (!(_parser.send("P0=%d", id) && check_response())) {
         return false;
     }
