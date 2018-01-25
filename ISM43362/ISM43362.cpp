@@ -425,13 +425,15 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
 bool ISM43362::dns_lookup(const char* name, char* ip)
 {
     char tmp[30];
-    char *ptr;
-    if (!(_parser.send("D0=%s", name) && _parser.read(tmp,30))) {
-        return 1;
+
+    if (!(_parser.send("D0=%s", name)
+                && _parser.recv("\r%s\r\nOK", tmp))) {
+        debug_if(ism_debug,"dns_lookup LINE KO: %s", tmp);
+        return 0;
     }
-    ptr = strchr(tmp,'\r');
-    strncpy(ip, tmp, (int)(ptr - tmp));
-    *(ip + (ptr - tmp)) = 0;
+
+    strncpy(ip, tmp, sizeof(tmp));
+
     debug("ip of DNSlookup: %s\n", ip);
     return 1;
 }
