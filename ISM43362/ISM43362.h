@@ -234,7 +234,6 @@ private:
         // data follows
     } *_packets, **_packets_end;
     void _packet_handler();
-    bool recv_ap(nsapi_wifi_ap_t *ap);
 
     char _ip_buffer[16];
     char _gateway_buffer[16];
