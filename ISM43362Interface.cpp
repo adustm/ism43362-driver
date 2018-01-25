@@ -264,7 +264,7 @@ void ISM43362Interface::socket_check_read()
                 /* has already been read : don't read again */
                 if ((socket->read_data_size == 0) && _cbs[socket->id].callback) {
                     /* if no callback is set, no need to read ?*/
-                    int read_amount = _ism.check_recv_status(socket->id, socket->read_data, sizeof(socket->read_data));
+                    int read_amount = _ism.check_recv_status(socket->id, socket->read_data);
                     if (read_amount > 0) {
                         socket->read_data_size = read_amount;
                         /* There is something to read in this socket*/

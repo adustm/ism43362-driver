@@ -470,10 +470,10 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
     return true;
 }
 
-int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
+int ISM43362::check_recv_status(int id, void *data)
 {
     uint32_t read_amount;
-    debug_if(ism_debug, "ISM43362 req check_recv_status=%d\r\n", amount);
+    debug_if(ism_debug, "ISM43362 req check_recv_status\r\n");
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return -1;
@@ -487,24 +487,25 @@ int ISM43362::check_recv_status(int id, void *data, uint32_t amount)
         return -1;
     }
     /* Read if data is = "OK\r\n" -> nothing to read, or if data is <> meaining something to read */
-    if (!(_parser.send("R1=%d", amount)&& _parser.recv("OK"))) {
+    if (!(_parser.send("R1=%d", 1200)&& _parser.recv("OK"))) {
             return -1;
     }
+
     if (!_parser.send("R0")) {
         return -1;
     }
-    read_amount = _parser.read((char *)data, amount);
+
+    read_amount = _parser.read((char *)data);
     if (strncmp("OK\r\n> ", (char *)data, 6) == 0) {
         debug_if(ism_debug, "ISM4336 recv 2 nothing to read=%d\r\n", read_amount);
         return 0; /* nothing to read */
-    } else {
+    } else if ((read_amount >= 8) && (strncmp((char *)((uint32_t) data + read_amount - 8), "\r\nOK\r\n> ", 8)) == 0) {
         /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
-        if ((read_amount >= 8) && (strncmp((char *)((uint32_t) data + read_amount - 8), "\r\nOK\r\n> ", 8)) == 0) {
-            read_amount -= 8;
-        }
-        debug_if(ism_debug, "ISM43362 read_amount=%d\r\n", read_amount);
-        return read_amount;
+        read_amount -= 8;
     }
+
+    debug_if(ism_debug, "ISM43362 read_amount=%d\r\n", read_amount);
+    return read_amount;
 }
 
 bool ISM43362::close(int id)

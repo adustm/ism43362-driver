@@ -151,70 +151,44 @@ int ATParser::read_withoutnss(char *data, int size)
     return (totalreadsize) ;
 }
 
-int ATParser::read(char *data, int size)
+int ATParser::read(char *data)
 {
-    int totalreadsize = 0;
-    int sizetoread = 0;
-    int readsize, i,j;
-    int nbcalls=1;
-    i = 0;
+    int readsize;
+    int i = 0;
 
     _bufferMutex.lock();
     this->flush();
 
+    readsize = _serial_spi->read(1200);
 
-    /* Determine the number of call to spi read */
-    /* it should not happen as it is handled in ATParser */
-    if (size > _buffer_size) { /* several calls to read are required */
-        nbcalls = (int) (size / _buffer_size);
-        if (size%_buffer_size) {
-            nbcalls++;
-        }
+    debug_if(dbg_on, "Avail in SPI %d\r\n", readsize);
+
+    if ( readsize < 0) {
+        _bufferMutex.unlock();
+        return -1;
     }
-    debug_if(dbg_on, "ATParser::read %d BYTES\r\n", size);
 
-    for (j=0; j< nbcalls; j++) {
-        if (j < (nbcalls - 1)) {
-            sizetoread = _buffer_size-2;
-        } else {
-            sizetoread = 8 + size - (_buffer_size * j); // protocol layer
-        }
-        readsize = _serial_spi->read(sizetoread);
-
-        debug_if(dbg_on, "Avail in SPI %d, vs. to_read=%d \r\n", readsize, sizetoread);
-
-        if ( readsize < 0) {
-            _bufferMutex.unlock();
-            return -1;
-        }
-
-        for ( ; i < MIN(readsize, sizetoread); i++) {
-            int c = getc();
-            if (c < 0) {
-                _bufferMutex.unlock();
-                return -1;
-            }
-            data[i] = c;
-        }
-        totalreadsize += i;
-        i = 0;
-        if (readsize < sizetoread) {
-            break; // no more data to read from the wifi device
-        }
+    for (i = 0 ; i < readsize; i++) {
+       int c = getc();
+       if (c < 0) {
+           _bufferMutex.unlock();
+           return -1;
+       }
+       data[i] = c;
     }
+
 #if TRACE_AT_DATA
-    debug_if(dbg_on, "AT<< %d BYTES\r\n", totalreadsize);
-    for (uint16_t j = 0; j < totalreadsize; j++) {
-         debug_if(dbg_on, "%2X ", data[j]);
+    debug_if(dbg_on, "AT<< %d BYTES\r\n", readsize);
+    for (i = 0; i < readsize; i++) {
+         debug_if(dbg_on, "%2X ", data[i]);
     }
     debug_if(dbg_on, "\r\n");
 #endif
 
     _bufferMutex.unlock();
 
-    return (totalreadsize) ;
+    return (readsize);
 }
-
 
 // printf/scanf handling
 int ATParser::vprintf(const char *format, va_list args)
