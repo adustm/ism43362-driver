@@ -164,7 +164,7 @@ const char *ISM43362::getIPAddress(void)
     char *ptr, *ptr2;
 
     if(!(_parser.send("C?")
-                && _parser.recv("\r\%s\r\nOK",
+                && _parser.recv("\r%s\r\nOK",
                                 tmp_ip_buffer))) {
         debug_if(ism_debug,"getIPAddress LINE KO: %s", tmp_ip_buffer);
         return 0;
@@ -195,7 +195,7 @@ const char *ISM43362::getMACAddress(void)
         return 0;
     }
 
-    debug_if(ism_debug,"receivedMacAddress LINE:%s, size=%d\r\n", _mac_buffer, sizeof(_mac_buffer));
+    debug_if(ism_debug,"receivedMacAddress:%s, size=%d\r\n", _mac_buffer, sizeof(_mac_buffer));
 
     return _mac_buffer;
 }
@@ -204,22 +204,24 @@ const char *ISM43362::getGateway()
 {
     char tmp[250];
 
-    _parser.send("C?");
-    int res = _parser.read(tmp, 250);
-    if (res <0) {
-        debug("receivedGateway: %s", tmp);
+    if(!(_parser.send("C?")
+                && _parser.recv("\r%s\r\nOK",
+                                tmp))) {
+        debug_if(ism_debug,"getGateway LINE KO: %s\r\n", tmp);
         return 0;
     }
-    /* Extract the Gateway in the received buffer */
 
+    /* Extract the Gateway in the received buffer */
     char *ptr;
     ptr = strtok(tmp,",");
     for (int i = 0; i< 7;i++) {
         if (ptr == NULL) break;
          ptr = strtok(NULL,",");
     }
-    
+
     strncpy(_gateway_buffer, ptr, sizeof(_gateway_buffer));
+
+    debug_if(ism_debug,"getGateway: %s\r\n", _gateway_buffer);
 
     return _gateway_buffer;
 }
@@ -227,13 +229,14 @@ const char *ISM43362::getGateway()
 const char *ISM43362::getNetmask()
 {
     char tmp[250];
-    _parser.send("C?");
-    int res = _parser.read(tmp, 250);
-    if (res <0) {
-        debug("receivedNetmask: %s", tmp);
+
+    if(!(_parser.send("C?")
+                && _parser.recv("\r%s\r\nOK",
+                                tmp))) {
+        debug_if(ism_debug,"getNetmask LINE KO: %s", tmp);
         return 0;
     }
-    
+
     /* Extract Netmask in the received buffer */
     char *ptr;
     ptr = strtok(tmp,",");
@@ -241,8 +244,10 @@ const char *ISM43362::getNetmask()
         if (ptr == NULL) break;
          ptr = strtok(NULL,",");
     }
-    
+
     strncpy(_netmask_buffer, ptr, sizeof(_netmask_buffer));
+
+    debug_if(ism_debug,"getNetmask: %s\r\n", _netmask_buffer);
 
     return _netmask_buffer;
 }
@@ -251,16 +256,16 @@ int8_t ISM43362::getRSSI()
 {
     int8_t rssi;
     char tmp[25];
-    /* Read SSID */
-    if (!(_parser.send("CR"))) {
+    if(!(_parser.send("CR")
+                && _parser.recv("%s\r\nOK",
+                                tmp))) {
+        debug_if(ism_debug,"getRSSI LINE KO: %s\r\n", tmp);
         return 0;
     }
-    int res = _parser.read(tmp, 25);
-    if (res <0) {
-        debug("receivedNetmask: %s", tmp);
-        return 0;
-    }
-    rssi = ParseNumber(tmp+2, NULL);
+
+    rssi = ParseNumber(tmp, NULL);
+
+    debug_if(ism_debug,"getRSSI: %d\r\n", rssi);
 
     return rssi;
 }
