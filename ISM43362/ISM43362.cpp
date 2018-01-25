@@ -470,40 +470,6 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
     return true;
 }
 
-void ISM43362::_packet_handler()
-{
-    int id;
-    uint32_t amount;
-
-    debug_if(ism_debug, "ISM43362 _packet_handler\r\n");
-
-    // parse out the packet
-    if (!_parser.recv(",%d,%d:", &id, &amount)) {
-        return;
-    }
-
-    struct packet *packet = (struct packet*)malloc(
-            sizeof(struct packet) + amount);
-    if (!packet) {
-        return;
-    }
-
-    packet->id = id;
-    packet->len = amount;
-    packet->next = 0;
-
-    if (!(_parser.read((char*)(packet + 1), amount))) {
-        free(packet);
-        return;
-    }
-    debug_if(ism_debug, "%d BYTES\r\n", amount);
-
-
-    // append to packet list
-    *_packets_end = packet;
-    _packets_end = &packet->next;
-}
-
 int32_t ISM43362::recv(int id, void *data, uint32_t amount)
 {
     debug_if(ism_debug, "ISM43362 req recv=%d\r\n", amount);
