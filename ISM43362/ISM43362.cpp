@@ -105,10 +105,15 @@ extern "C" int32_t ParseNumber(char* ptr, uint8_t* cnt)
 
 int ISM43362::get_firmware_version()
 {
-    if (!(_parser.send("I?") && _parser.recv("ISM43362-M3G-L44-SPI,C3.5.2.3.BETA9,v3.5.2,v1.4.0.rc1,v8.2.1,120000000,Inventek eS-WiFi"))){
+    /* Note: the firmware command does not seem to end exactly as the other
+     * commands. So we're not looking for \r\n at the end of the string */
+    if (!(_parser.send("I?")
+                && _parser.recv("ISM43362-M3G-L44-SPI,C3.5.2.3.BETA9,v3.5.2,v1.4.0.rc1,v8.2.1,120000000,Inventek eS-WiFi\r\n")
+                && check_response())) {
         debug("wrong version number\n");
         return -1;
     }
+
     return (35239);
 }
 
@@ -162,42 +167,45 @@ bool ISM43362::check_response(void)
 
 bool ISM43362::dhcp(bool enabled)
 {
-    return (_parser.send("C4=%d", enabled ? 1:0) && _parser.recv("OK"));
+    return (_parser.send("C4=%d", enabled ? 1:0) && check_response());
 }
 
 bool ISM43362::connect(const char *ap, const char *passPhrase)
 {
-    if (!(_parser.send("C1=%s", ap) && (_parser.recv("OK")))) {
+    if (!(_parser.send("C1=%s", ap) && check_response())) {
         return false;
     }
-    if (!(_parser.send("C2=%s", passPhrase) && (_parser.recv("OK")))) {
+
+    if (!(_parser.send("C2=%s", passPhrase) && check_response())) {
         return false;
     }
     /* TODO security level = 3 , is it hardcoded or not ???? */
-    if (!(_parser.send("C3=3") && (_parser.recv("OK")))) {
+    if (!(_parser.send("C3=3") && check_response())) {
         return false;
     }
-    
     /* now connect */
-    if (!(_parser.send("C0") && _parser.recv("OK"))) {
+    /* connect response contains more data that we don't need now,
+     * So we only look for OK, the flush the end of it */
+    if (!(_parser.send("C0") && _parser.recv("OK\r\n"))) {
         return false;
     }
+    _parser.flush();
+
     return true;
 }
 
 bool ISM43362::disconnect(void)
 {
-    return _parser.send("CD") && _parser.recv("OK");
+    return (_parser.send("CD") && check_response());
 }
 
 const char *ISM43362::getIPAddress(void)
 {
-    char tmp_ip_buffer[150];
+    char tmp_ip_buffer[250];
     char *ptr, *ptr2;
 
     if(!(_parser.send("C?")
-                && _parser.recv("\r%s\r\nOK",
-                                tmp_ip_buffer))) {
+                && _parser.recv("%s\r\n", tmp_ip_buffer) && check_response())) {
         debug_if(ism_debug,"getIPAddress LINE KO: %s", tmp_ip_buffer);
         return 0;
     }
@@ -222,7 +230,7 @@ const char *ISM43362::getIPAddress(void)
 
 const char *ISM43362::getMACAddress(void)
 {
-    if(!(_parser.send("Z5") && _parser.recv("%s\r\nOK", _mac_buffer))) {
+    if(!(_parser.send("Z5") && _parser.recv("%s\r\n", _mac_buffer) && check_response())) {
         debug_if(ism_debug,"receivedMacAddress LINE KO: %s", _mac_buffer);
         return 0;
     }
@@ -236,9 +244,7 @@ const char *ISM43362::getGateway()
 {
     char tmp[250];
 
-    if(!(_parser.send("C?")
-                && _parser.recv("\r%s\r\nOK",
-                                tmp))) {
+    if(!(_parser.send("C?") && _parser.recv("%s\r\n", tmp) && check_response())) {
         debug_if(ism_debug,"getGateway LINE KO: %s\r\n", tmp);
         return 0;
     }
@@ -262,9 +268,7 @@ const char *ISM43362::getNetmask()
 {
     char tmp[250];
 
-    if(!(_parser.send("C?")
-                && _parser.recv("\r%s\r\nOK",
-                                tmp))) {
+    if(!(_parser.send("C?") && _parser.recv("%s\r\n", tmp) && check_response())) {
         debug_if(ism_debug,"getNetmask LINE KO: %s", tmp);
         return 0;
     }
@@ -288,9 +292,8 @@ int8_t ISM43362::getRSSI()
 {
     int8_t rssi;
     char tmp[25];
-    if(!(_parser.send("CR")
-                && _parser.recv("%s\r\nOK",
-                                tmp))) {
+
+    if(!(_parser.send("CR") && _parser.recv("%s\r\n", tmp) && check_response())) {
         debug_if(ism_debug,"getRSSI LINE KO: %s\r\n", tmp);
         return 0;
     }
@@ -433,22 +436,22 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
         return false;
     }
     /* Set communication socket */
-    if (!(_parser.send("P0=%d", id) && _parser.recv("OK"))) {
+    if (!(_parser.send("P0=%d", id) && check_response())) {
         return false;
     }
     /* Set protocol */
-    if (!(_parser.send("P1=%s", type) && _parser.recv("OK"))) {
+    if (!(_parser.send("P1=%s", type) && check_response())) {
         return false;
     }
     /* Set address */
-    if (!(_parser.send("P3=%s", addr) && _parser.recv("OK"))) {
+    if (!(_parser.send("P3=%s", addr) && check_response())) {
         return false;
     }
-    if (!(_parser.send("P4=%d", port) && _parser.recv("OK"))) {
+    if (!(_parser.send("P4=%d", port) && check_response())) {
         return false;
     }
     /* Start client */
-    if (!(_parser.send("P6=1") && _parser.recv("OK"))) {
+    if (!(_parser.send("P6=1") && check_response())) {
         return false;
     }
     return true;
@@ -458,8 +461,8 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
 {
     char tmp[30];
 
-    if (!(_parser.send("D0=%s", name)
-                && _parser.recv("\r%s\r\nOK", tmp))) {
+    if (!(_parser.send("D0=%s", name) && _parser.recv("%s\r\n", tmp)
+                && check_response())) {
         debug_if(ism_debug,"dns_lookup LINE KO: %s", tmp);
         return 0;
     }
@@ -478,11 +481,11 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
     if ((id < 0) ||(id > 3)) {
         return false;
     }
-    if (!(_parser.send("P0=%d",id) && _parser.recv("OK"))) {
+    if (!(_parser.send("P0=%d",id) && check_response())) {
         return false;
     }
     /* Change the write timeout */
-    if (!(_parser.send("S2=%d", _timeout) && _parser.recv("OK"))) {
+    if (!(_parser.send("S2=%d", _timeout) && check_response())) {
         return false;
     }
     /* set Write Transport Packet Size */
@@ -495,7 +498,7 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
         return false;
     }
 
-    if (!_parser.recv("OK")) {
+    if (!check_response()) {
         return false;
     }
 
@@ -510,16 +513,16 @@ int ISM43362::check_recv_status(int id, void *data)
     if ((id < 0) ||(id > 3)) {
         return -1;
     }
-    if (!(_parser.send("P0=%d",id) && _parser.recv("OK"))) {
+    if (!(_parser.send("P0=%d",id) && check_response())) {
         return -1;
     }
 
     /* Change receive timeout */
-    if (!(_parser.send("R2=%d", _timeout) && _parser.recv("OK"))) {
+    if (!(_parser.send("R2=%d", _timeout) && check_response())) {
         return -1;
     }
     /* Read if data is = "OK\r\n" -> nothing to read, or if data is <> meaining something to read */
-    if (!(_parser.send("R1=%d", 1200)&& _parser.recv("OK"))) {
+    if (!(_parser.send("R1=%d", 1200)&& check_response())) {
             return -1;
     }
 
@@ -547,11 +550,11 @@ bool ISM43362::close(int id)
         return false;
     }
     /* Set connection on this socket */
-    if (!(_parser.send("P0=%d", id) && _parser.recv("OK"))){
+    if (!(_parser.send("P0=%d", id) && check_response())) {
         return false;
     }
     /* close this socket */
-    if (!(_parser.send("P6=0") && _parser.recv("OK"))){
+    if (!(_parser.send("P6=0") && check_response())) {
         return false;
     }
     return true;
