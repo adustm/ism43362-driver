@@ -82,6 +82,8 @@ int ISM43362Interface::connect()
         return NSAPI_ERROR_DHCP_FAILURE;
     }
 
+    _ism.setTimeout(ISM43362_MISC_TIMEOUT);
+
     return NSAPI_ERROR_OK;
 }
 
@@ -164,6 +166,7 @@ int8_t ISM43362Interface::get_rssi()
 
 int ISM43362Interface::scan(WiFiAccessPoint *res, unsigned count)
 {
+    _ism.setTimeout(ISM43362_MISC_TIMEOUT);
     return _ism.scan(res, count);
 }
 
