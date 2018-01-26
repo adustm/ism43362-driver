@@ -25,39 +25,13 @@ ISM43362::ISM43362(PinName mosi, PinName miso, PinName sclk, PinName nss, PinNam
     : _bufferspi(mosi, miso, sclk, nss, datareadypin), _parser(_bufferspi), _resetpin(resetpin),
       _packets(0), _packets_end(&_packets)
 {
-    Timer timer;
-    uint16_t Prompt[3];
-    uint8_t count = 0;
-    
     DigitalOut wakeup_pin(wakeup);
     ISM43362::setTimeout((uint32_t)5000);
     _bufferspi.format(16, 0); /* 16bits, ploarity low, phase 1Edge, master mode */
     _bufferspi.frequency(10000000); /* up to 20 MHz */
 
-    _resetpin = 0;
-    wait_ms(10);
-    _resetpin = 1;
-    wait_ms(500);
+    reset();
 
-    _bufferspi.enable_nss();
-
-    timer.start();
-
-    while (_bufferspi.dataready.read() == 1) {
-      Prompt[count] =(uint16_t)_bufferspi.get16b();
-      count += 1;
-      if(timer.read_ms() > 0xFFFF) {
-        _bufferspi.disable_nss();
-        break;
-      }    
-    }
-
-    if((Prompt[0] != 0x1515) ||(Prompt[1] != 0x0A0D)||
-         (Prompt[2] != 0x203E)) {
-      _bufferspi.disable_nss();
-    }
-    _bufferspi.disable_nss();
-    
     _parser.debugOn(debug);
 }
 
@@ -124,12 +98,20 @@ bool ISM43362::startup(int mode)
 
 bool ISM43362::reset(void)
 {
-  
+    debug_if(ism_debug,"Reset Module\r\n");
     _resetpin = 0;
     wait_ms(10);
     _resetpin = 1;
     wait_ms(500);
 
+    /*  Wait for prompt line */
+    if (!_parser.recv("> \r\n")) {
+        debug_if(ism_debug,"Reset Module failed\r\n");
+        return false;
+    }
+
+    return true;
+}
 
 void ISM43362::print_rx_buff(void) {
     char tmp[150] = {0};
@@ -586,13 +568,5 @@ bool ISM43362::writeable()
 void ISM43362::attach(Callback<void()> func)
 {
     /* not applicable with SPI api */
-}
-
-void ISM43362::reset_module(DigitalOut rstpin)
-{
-    rstpin = 0;
-    wait_ms(10);
-    rstpin = 1;
-    wait_ms(500);
 }
 
