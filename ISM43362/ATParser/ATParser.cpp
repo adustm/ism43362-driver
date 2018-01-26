@@ -349,7 +349,7 @@ restart:
         _buffer[offset++] = 'n';
         _buffer[offset++] = 0;
 
-        debug_if(dbg_on, "AT? %s\n", _buffer);
+        debug_if(dbg_on, "AT? ====%s====\n", _buffer);
         // To workaround scanf's lack of error reporting, we actually
         // make two passes. One checks the validity with the modified
         // format string that only stores the matched characters (%n).
@@ -401,7 +401,7 @@ restart:
 
             // We only succeed if all characters in the response are matched
             if (count == j) {
-                debug_if(dbg_on, "AT= %s\n", _buffer + offset);
+                debug_if(dbg_on, "AT= ====%s====\n", _buffer + offset);
                 // Reuse the front end of the buffer
                 memcpy(_buffer, response, i);
                 _buffer[i] = 0;
