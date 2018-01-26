@@ -227,6 +227,8 @@ private:
     DigitalOut _resetpin;
     int _timeout;
     void reset_module(DigitalOut rstpin);
+    void print_rx_buff(void);
+    bool check_response(void);
     struct packet {
         struct packet *next;
         int id;

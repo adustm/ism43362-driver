@@ -125,6 +125,38 @@ bool ISM43362::reset(void)
     _resetpin = 1;
     wait_ms(500);
 
+
+void ISM43362::print_rx_buff(void) {
+    char tmp[150] = {0};
+    uint16_t i = 0;
+    while(i  < 150) {
+        int c = _parser.getc();
+        if (c < 0)
+            break;
+        tmp[i] = c;
+        debug_if(ism_debug," 0x%2X",c);
+        i++;
+    }
+    debug_if(ism_debug,"Buffer content =====%s=====\r\n",tmp);
+}
+
+/*  checks the standard OK response of the WIFI module, shouldbe:
+ *  \r\nDATA\r\nOK\r\n>sp
+ *  or
+ *  \r\nERROR\r\nUSAGE\r\n>sp
+ *  function returns true if OK, false otherwise. In case of error,
+ *  print error content then flush buffer */
+bool ISM43362::check_response(void)
+{
+    if(!(_parser.recv("OK\r\n"))) {
+        print_rx_buff();
+        _parser.flush();
+        return false;
+    }
+    /*  Then we should get "> ", but sometimes it seems it's missing,
+     *  let's make it optional */
+    _parser.recv("> \r\n");
+
     return true;
 }
 
