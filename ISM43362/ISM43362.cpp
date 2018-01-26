@@ -374,58 +374,63 @@ int ISM43362::scan(WiFiAccessPoint *res, unsigned limit)
     char *ptr;
     char tmp[256];
 
-    /* Get the list of AP */
-    if (!(_parser.send("F0") && _parser.read_withoutnss(tmp, 256))) {
-        return NSAPI_ERROR_DEVICE_ERROR;
+    if(!(_parser.send("F0"))) {
+        debug_if(ism_debug,"scan error\r\n");
+        return 0;
     }
 
     /* Parse the received buffer and fill AP buffer */
-    ptr = strtok(tmp + 2, ",");   
-  
-    while (ptr != NULL) {
-        switch (num++) { 
-        case 0: /* Ignore index */
-        case 4: /* Ignore Max Rate */
-        case 5: /* Ignore Network Type */
-        case 7: /* Ignore Radio Band */      
-            break;
-          
-        case 1:
-            ptr[strlen(ptr) - 1] = 0;
-            strncpy((char *)ap.ssid,  ptr+ 1, 32); 
-            break;
-          
-        case 2:
-            for (int i=0; i<6; i++) {
-                ap.bssid[i] = ParseHexNumber(ptr + (i*3), NULL);
+    while (_parser.recv("#%s\n", tmp)) {
+        debug_if(ism_debug,"received:%s", tmp);
+        ptr = strtok(tmp, ",");
+        num = 0;
+        while (ptr != NULL) {
+            if (limit != 0 && cnt >= limit) {
+                /* reached end */
+                break;
             }
-            break;
-
-        case 3: 
-            ap.rssi = ParseNumber(ptr, NULL);
-            break;
-          
-        case 6: 
-            ap.security = ParseSecurity(ptr);
-            break;      
-
-        case 8:            
-            ap.channel = ParseNumber(ptr, NULL);
-            res[cnt] = WiFiAccessPoint(ap);
-            cnt++; 
-            num = 1;
-            break;
-
-        default: 
-            break;
+            switch (num++) {
+            case 0: /* Ignore index */
+            case 4: /* Ignore Max Rate */
+            case 5: /* Ignore Network Type */
+            case 7: /* Ignore Radio Band */
+                break;
+            case 1:
+                ptr[strlen(ptr) - 1] = 0;
+                strncpy((char *)ap.ssid,  ptr+ 1, 32);
+                break;
+            case 2:
+                for (int i=0; i<6; i++) {
+                    ap.bssid[i] = ParseHexNumber(ptr + (i*3), NULL);
+                }
+                break;
+            case 3:
+                ap.rssi = ParseNumber(ptr, NULL);
+                break;
+            case 6:
+                ap.security = ParseSecurity(ptr);
+                break;
+            case 8:
+                ap.channel = ParseNumber(ptr, NULL);
+                res[cnt] = WiFiAccessPoint(ap);
+                cnt++;
+                num = 1;
+                break;
+            default:
+                break;
+            }
+            ptr = strtok(NULL, ",");
         }
-        ptr = strtok(NULL, ",");
-        if (limit != 0 && cnt >= limit) {
-            break;
-        }
-    }  
+    }
+
+    /* We may stop before having read all the APs list, so flush the rest of
+     * it as well as OK commands */
+    _parser.flush();
+
+    debug_if(ism_debug, "End of Scan: cnt=%d\n", cnt);
 
     return cnt;
+
 }
 
 bool ISM43362::open(const char *type, int id, const char* addr, int port)

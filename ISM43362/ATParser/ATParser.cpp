@@ -308,8 +308,13 @@ bool ATParser::vrecv(const char *response, va_list args)
 {
     _bufferMutex.lock();
     /* Read from the wifi module, fill _rxbuffer */
-    this->flush();
-    _serial_spi->read();
+    //this->flush();
+    if(!_serial_spi->readable()) {
+         debug_if(dbg_on, "NO DATA, read again\r\n");
+        _serial_spi->read();
+    } else {
+         debug_if(dbg_on, "Pending data\r\n");
+    }
 restart:
     _aborted = false;
     // Iterate through each line in the expected response
