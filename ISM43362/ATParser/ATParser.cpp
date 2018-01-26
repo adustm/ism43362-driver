@@ -362,19 +362,7 @@ restart:
                 _bufferMutex.unlock();
                 return false;
             }
-            // Simplify newlines (borrowed from retarget.cpp)
-            if ((c == CR && _in_prev != LF) ||
-                (c == LF && _in_prev != CR)) {
-                _in_prev = c;
-                c = '\n';
-            } else if ((c == CR && _in_prev == LF) ||
-                       (c == LF && _in_prev == CR)) {
-                _in_prev = c;
-                // onto next character
-                continue;
-            } else {
-                _in_prev = c;
-            }
+
             _buffer[offset + j++] = c;
             _buffer[offset + j] = 0;
 
