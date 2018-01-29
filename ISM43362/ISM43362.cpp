@@ -140,9 +140,29 @@ bool ISM43362::check_response(void)
         _parser.flush();
         return false;
     }
+
+    /* The last characters of commands are not always present, so we
+     * mainly want to clean-up the buffer, but don't plan to wait for
+     * this trailing characters, so we temporariliy reduce the timout
+     * to 1 ms only.
+     */
+    int save = _timeout;
+    setTimeout(1);
     /*  Then we should get "> ", but sometimes it seems it's missing,
      *  let's make it optional */
     _parser.recv("> \r\n");
+    /*  Inventek module do stuffing / padding of data with 0x15,
+     *  in case buffer containes such */
+    while(1) {
+        int c = _parser.getc();
+        if ( c == 0x15) {
+            continue;
+        } else {
+            /*  How to put it back if needed ? */
+            break;
+        }
+    }
+    setTimeout(save);
 
     return true;
 }
