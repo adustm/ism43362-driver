@@ -63,8 +63,6 @@ int ISM43362Interface::connect()
         return NSAPI_ERROR_DEVICE_ERROR;
     }
     
-    _ism.setTimeout(ISM43362_CONNECT_TIMEOUT);
-
     /* don't see the related mode in Inventek specification : remove for the moment*/
   //  if (!_ism.startup(3)) {
   //      return NSAPI_ERROR_DEVICE_ERROR;
@@ -74,10 +72,13 @@ int ISM43362Interface::connect()
         return NSAPI_ERROR_DHCP_FAILURE;
     }
 
+    _ism.setTimeout(ISM43362_CONNECT_TIMEOUT);
+
     if (!_ism.connect(ap_ssid, ap_pass)) {
         return NSAPI_ERROR_NO_CONNECTION;
     }
 
+    _ism.setTimeout(ISM43362_MISC_TIMEOUT);
     if (!_ism.getIPAddress()) {
         return NSAPI_ERROR_DHCP_FAILURE;
     }
