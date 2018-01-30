@@ -374,6 +374,9 @@ restart:
                 return false;
             }
 
+#if TRACE_AT_DATA
+             debug_if(dbg_on, "%2X ", c);
+#endif
             _buffer[offset + j++] = c;
             _buffer[offset + j] = 0;
 
