@@ -73,21 +73,26 @@ int ATParser::getc()
 
 void ATParser::flush()
 {
+    _bufferMutex.lock();
     while (_serial_spi->readable()) {
         _serial_spi->getc();
     }
+    _bufferMutex.unlock();
 }
 
 // read/write handling with timeouts
 int ATParser::write(const char *data, int size_of_data, int size_in_buff)
 {
     int i = 0;
+    _bufferMutex.lock();
     for ( ; i < size_of_data; i++) {
         if (putc(data[i]) < 0) {
+            _bufferMutex.unlock();
             return -1;
         }
     }
     _serial_spi->buffsend(size_of_data + size_in_buff);
+    _bufferMutex.unlock();
     return (size_of_data + size_in_buff);
 }
 
