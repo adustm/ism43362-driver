@@ -219,7 +219,7 @@ ssize_t BufferedSpi::read(int max)
         }
         if (dataready.read() == 0) { /* end of reception reached */
             if ((tmp&0XFF00) == 0x1500){
-                if ((max != 0) && (len < max)) { // to remove once data > buff size is handled
+                if ( (max == 0) || (len < max)) { // to remove once data > buff size is handled
                     _rxbuf = (char)(tmp & 0xFF);
                     len++;
                 }
@@ -228,7 +228,7 @@ ssize_t BufferedSpi::read(int max)
         }
         if (!((len == 0) && (tmp == 0x0A0D))) {
             /* do not take into account the 2 firts \r \n char in the buffer */
-            if ((max == 0) || ((max !=0) && (len < max))) {
+            if ((max == 0) || (len < max)) {
                 _rxbuf = (char)(tmp & 0x00FF);
                 _rxbuf = (char)((tmp >>8)& 0xFF);
                 len += 2;
