@@ -96,73 +96,13 @@ int ATParser::write(const char *data, int size_of_data, int size_in_buff)
     return (size_of_data + size_in_buff);
 }
 
-int ATParser::read_withoutnss(char *data, int size)
-{
-    int totalreadsize = 0;
-    int sizetoread = 0;
-    int readsize, i,j;
-    int nbcalls=1;
-    i = 0;
-
-    _bufferMutex.lock();
-    this->flush();
-    /* Determine the number of call to spi read */
-    /* it should not happen as it is handled in ATParser */
-    if (size > _buffer_size) { /* several calls to read are required */
-        nbcalls = (int) (size / (_buffer_size - 2));
-        if (size%(_buffer_size - 2)) {
-            nbcalls++;
-        }
-    }
-    
-    for (j=0; j< nbcalls; j++) {
-        if (j < (nbcalls - 1)) {
-            sizetoread = _buffer_size-2;
-        } else {
-            sizetoread = 8 + size - ((_buffer_size - 2) * j);
-        }
-
-        if ( j == 0) {
-            readsize = _serial_spi->read_1st(_buffer_size-2);
-        } else {
-            readsize = _serial_spi->read_no_nss(_buffer_size-2);
-        }
-
-        if ( readsize < 0) {
-            _serial_spi->disable_nss();
-            _bufferMutex.unlock();
-            return -1;
-        }
-
-        for ( ; i < MIN(readsize, sizetoread); i++) {
-            int c = getc();
-            if (c < 0) {
-                _serial_spi->disable_nss();
-                _bufferMutex.unlock();
-                return -1;
-            }
-            data[i] = c;
-        }
-        totalreadsize += i;
-        i = 0;
-        if (readsize < sizetoread) {
-            break; // no more data to read from the wifi device
-        }
-    }
-    _serial_spi->disable_nss();
-    debug_if(dbg_on, "AT< %s\r\n", data);
-
-    _bufferMutex.unlock();
-
-    return (totalreadsize) ;
-}
-
 int ATParser::read(char *data)
 {
     int readsize;
     int i = 0;
 
     _bufferMutex.lock();
+
     this->flush();
 
     readsize = _serial_spi->read(1200);

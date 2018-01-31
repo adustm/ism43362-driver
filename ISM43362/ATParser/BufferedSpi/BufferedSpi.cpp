@@ -198,40 +198,16 @@ ssize_t BufferedSpi::read()
 ssize_t BufferedSpi::read(int max)
 {
     int len = 0;
-
-    disable_nss();
-    /* wait for data ready is up */
-    while (dataready.read() == 0) {
-        // TO DO handle the timeout
-    }
-
-    enable_nss();
-
-    len = BufferedSpi::read_no_nss(max);
-
-    disable_nss();
-
-    return len;
-}
-
-ssize_t BufferedSpi::read_1st(int max)
-{
-    debug_if(local_debug, "READ 1ST !!!!! \r\n");
-    disable_nss();
-    /* wait for data ready is up */
-    while (dataready.read() == 0) {
-        // TO DO handle the timeout
-    }
-    enable_nss();
-
-    return this->read_no_nss(max);
-}
-
-ssize_t BufferedSpi::read_no_nss(int max)
-{
-    int len = 0;
     int tmp;
 
+    disable_nss();
+
+    /* wait for data ready is up */
+    while (dataready.read() == 0) {
+        // TO DO handle the timeout
+    }
+
+    enable_nss();
     while (dataready.read() == 1) {
         tmp = SPI::write(0);  // dummy write to receive 2 bytes
 
@@ -256,6 +232,8 @@ ssize_t BufferedSpi::read_no_nss(int max)
             }
         }
     }
+    disable_nss();
+
     debug_if(local_debug, "SPI READ %d BYTES\r\n", len);
 
     return len;
