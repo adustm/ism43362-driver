@@ -26,6 +26,11 @@
 #define ES_WIFI_API_REV_SIZE                        16
 #define ES_WIFI_STACK_REV_SIZE                      16
 #define ES_WIFI_RTOS_REV_SIZE                       16
+
+// The input range for AT Command 'R1' is 0 to 1200 bytes
+// ‘R1’ Set Read Transport Packet Size (bytes)
+#define ES_WIFI_MAX_RX_PACKET_SIZE                     1200
+
 /** ISM43362Interface class.
     This is an interface to a ISM43362 radio.
  */

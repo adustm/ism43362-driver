@@ -473,7 +473,7 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
         return -1;
     }
     /* request as much data as possible - i.e. module max size */
-    if (!(_parser.send("R1=%d", 1200)&& check_response())) {
+    if (!(_parser.send("R1=%d", ES_WIFI_MAX_RX_PACKET_SIZE)&& check_response())) {
             return -1;
     }
 
@@ -498,7 +498,10 @@ bool ISM43362::dns_lookup(const char* name, char* ip)
 
 bool ISM43362::send(int id, const void *data, uint32_t amount)
 {
-    // TODO CHECK SIZE NOT > txbuf size
+    // The Size limit has to be checked on caller side.
+    if (amount > ES_WIFI_MAX_RX_PACKET_SIZE) {
+        return false;
+    }
 
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {

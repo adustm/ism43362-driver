@@ -105,7 +105,7 @@ int ATParser::read(char *data)
 
     this->flush();
 
-    readsize = _serial_spi->read(1200);
+    readsize = _serial_spi->read();
 
     debug_if(dbg_on, "Avail in SPI %d\r\n", readsize);
 

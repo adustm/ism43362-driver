@@ -295,6 +295,10 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
     socket->read_mutex.lock();
     _ism.setTimeout(ISM43362_SEND_TIMEOUT);
 
+    if (size > ES_WIFI_MAX_RX_PACKET_SIZE) {
+        size = ES_WIFI_MAX_RX_PACKET_SIZE;
+    }
+
     if (!_ism.send(socket->id, data, size)) {
         socket->read_mutex.unlock();
         debug_if(ism_debug, "socket_send ERROR\r\n");
