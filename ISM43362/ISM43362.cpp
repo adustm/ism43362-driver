@@ -29,6 +29,7 @@ ISM43362::ISM43362(PinName mosi, PinName miso, PinName sclk, PinName nss, PinNam
     ISM43362::setTimeout((uint32_t)5000);
     _bufferspi.format(16, 0); /* 16bits, ploarity low, phase 1Edge, master mode */
     _bufferspi.frequency(10000000); /* up to 20 MHz */
+    _active_id = 0xFF;
 
     reset();
 
@@ -444,6 +445,7 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
     }
     /* Set communication socket */
     debug_if(ism_debug, "OPEN socket\n");
+    _active_id = id;
     if (!(_parser.send("P0=%d", id) && check_response())) {
         return false;
     }
@@ -503,9 +505,13 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
         return false;
     }
     debug_if(ism_debug, "SEND socket amount %d\n", amount);
-    if (!(_parser.send("P0=%d",id) && check_response())) {
-        return false;
+    if (_active_id != id) {
+        _active_id = id;
+        if (!(_parser.send("P0=%d",id) && check_response())) {
+            return false;
+        }
     }
+
     /* Change the write timeout */
     if (!(_parser.send("S2=%d", _timeout) && check_response())) {
         return false;
@@ -530,20 +536,23 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
 int ISM43362::check_recv_status(int id, void *data)
 {
     uint32_t read_amount;
+
     debug_if(ism_debug, "ISM43362 req check_recv_status\r\n");
     /* Activate the socket id in the wifi module */
     if ((id < 0) ||(id > 3)) {
         return -1;
     }
-    if (!(_parser.send("P0=%d",id) && check_response())) {
 
+    if (_active_id != id) {
+        _active_id = id;
+        if (!(_parser.send("P0=%d",id) && check_response())) {
             return -1;
+        }
     }
 
     if (!_parser.send("R0")) {
         return -1;
     }
-
     read_amount = _parser.read((char *)data);
     if (strncmp("OK\r\n> ", (char *)data, 6) == 0) {
         debug_if(ism_debug, "ISM4336 recv 2 nothing to read=%d\r\n", read_amount);
@@ -565,6 +574,7 @@ bool ISM43362::close(int id)
     }
     /* Set connection on this socket */
     debug_if(ism_debug,"CLOSE socket id=%d\n", id);
+    _active_id = id;
     if (!(_parser.send("P0=%d", id) && check_response())) {
         return false;
     }
