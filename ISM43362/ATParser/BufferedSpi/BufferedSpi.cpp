@@ -205,6 +205,9 @@ ssize_t BufferedSpi::read(int max)
     /* wait for data ready is up */
     while (dataready.read() == 0) {
         // TO DO handle the timeout
+        // From measurement, a few ms are spent waiting
+        // so let's release CPU for other threads to run
+        wait_ms(1);
     }
 
     enable_nss();
