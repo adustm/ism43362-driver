@@ -462,6 +462,19 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
     if (!(_parser.send("P6=1") && check_response())) {
         return false;
     }
+
+    /* MBED wifi driver is meant to be non-blocking, so we'll never actually
+     * request the WIFI driver to wait for data, so we set receive timeout
+     * to not wait for data, but simply check if there is data present in
+     * the internal buffers of the module, using minimum 1ms read timeout */
+    if (!(_parser.send("R2=%d", 1) && check_response())) {
+        return -1;
+    }
+    /* request as much data as possible - i.e. module max size */
+    if (!(_parser.send("R1=%d", 1200)&& check_response())) {
+            return -1;
+    }
+
     return true;
 }
 
@@ -523,15 +536,7 @@ int ISM43362::check_recv_status(int id, void *data)
         return -1;
     }
     if (!(_parser.send("P0=%d",id) && check_response())) {
-        return -1;
-    }
 
-    /* Change receive timeout */
-    if (!(_parser.send("R2=%d", _timeout) && check_response())) {
-        return -1;
-    }
-    /* Read if data is = "OK\r\n" -> nothing to read, or if data is <> meaining something to read */
-    if (!(_parser.send("R1=%d", 1200)&& check_response())) {
             return -1;
     }
 
