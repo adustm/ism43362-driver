@@ -329,6 +329,15 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
 
     socket->read_mutex.lock();
     tries++;
+
+    if (socket->read_data_size == 0) {
+        /* if no callback is set, no need to read ?*/
+        int read_amount = _ism.check_recv_status(socket->id, socket->read_data);
+        if (read_amount > 0) {
+            socket->read_data_size = read_amount;
+        }
+    }
+
     if (socket->read_data_size != 0) {
         debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
         uint32_t i=0;
