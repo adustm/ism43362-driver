@@ -27,7 +27,28 @@
 // change to true to add few SPI debug lines
 #define local_debug false
 
+
 extern "C" int BufferedPrintfC(void *stream, int size, const char* format, va_list arg);
+
+
+void BufferedSpi::DatareadyRising(void)
+{
+   if (_cmddata_rdy_rising_event == 1) {
+     _cmddata_rdy_rising_event=0;
+   }
+}
+
+int BufferedSpi::wait_cmddata_rdy_rising_event(void)
+{
+  while (_cmddata_rdy_rising_event == 1) {
+        // TO DO handle the timeout
+        // From measurement, a few ms are spent waiting
+        // so let's release CPU for other threads to run
+        wait_ms(1);
+  }
+
+  return 0;
+}
 
 BufferedSpi::BufferedSpi(PinName mosi, PinName miso, PinName sclk, PinName _nss, PinName _datareadypin,
                          uint32_t buf_size, uint32_t tx_multiple, const char* name)
@@ -36,6 +57,11 @@ BufferedSpi::BufferedSpi(PinName mosi, PinName miso, PinName sclk, PinName _nss,
     this->_buf_size = buf_size;
     this->_tx_multiple = tx_multiple;
     this->_sigio_event = 0;
+
+    _datareadyInt = new InterruptIn(_datareadypin);
+    _datareadyInt->rise(callback(this, &BufferedSpi::DatareadyRising));
+    _cmddata_rdy_rising_event = 1;
+
     return;
 }
 
@@ -146,6 +172,10 @@ ssize_t BufferedSpi::buffwrite(const void *s, size_t length)
     /* wait for dataready = 1 */
     while(dataready.read() == 0) {
     }
+
+    // arm to detect rising event
+    _cmddata_rdy_rising_event = 1;
+
     this->enable_nss();
     
     if (s != NULL && length > 0) {
@@ -163,6 +193,7 @@ ssize_t BufferedSpi::buffwrite(const void *s, size_t length)
 
         /* 2nd write in SPI */
         BufferedSpi::txIrq();                // only write to hardware in one place
+
         this->disable_nss();
         return ptr - (const char*)s;
     }
@@ -176,6 +207,10 @@ ssize_t BufferedSpi::buffsend(size_t length)
     /* wait for dataready = 1 */
     while(dataready.read() == 0) {
     }
+
+    // arm to detect rising event
+    _cmddata_rdy_rising_event = 1;
+
     this->enable_nss();
 
     /* _txbuffer is already filled with data to send */
@@ -185,6 +220,7 @@ ssize_t BufferedSpi::buffsend(size_t length)
         length++;
     }
     BufferedSpi::txIrq();                // only write to hardware in one place
+
     this->disable_nss();
 
     return length;
@@ -203,12 +239,8 @@ ssize_t BufferedSpi::read(int max)
     disable_nss();
 
     /* wait for data ready is up */
-    while (dataready.read() == 0) {
-        // TO DO handle the timeout
-        // From measurement, a few ms are spent waiting
-        // so let's release CPU for other threads to run
-        wait_ms(1);
-    }
+    wait_cmddata_rdy_rising_event();
+
 
     enable_nss();
     while (dataready.read() == 1) {

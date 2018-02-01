@@ -79,6 +79,11 @@ private:
     void txIrq(void);
     void prime(void);
 
+    InterruptIn* _datareadyInt;
+    volatile int _cmddata_rdy_rising_event;
+    void DatareadyRising(void);
+    int wait_cmddata_rdy_rising_event();
+
     Callback<void()> _cbs[2];
 
     Callback<void()> _sigio_cb;
