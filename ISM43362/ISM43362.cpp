@@ -557,6 +557,18 @@ int ISM43362::check_recv_status(int id, void *data)
         return -1;
     }
     read_amount = _parser.read((char *)data);
+
+    /*  If there are spurious 0x15 at the end of the data, this is an error
+     *  we hall can get rid off of them :-(
+     *  This should not happen, but let's try to clean-up anyway
+     */
+    char *cleanup = (char *) data;
+    while ((read_amount > 0) && (cleanup[read_amount-1] == 0x15)) {
+        debug_if(ism_debug, "ISM4336 spurious 0X15 trashed\r\n");
+        /* Remove the trailling char then search again */
+        read_amount--;
+    }
+
     if (strncmp("OK\r\n> ", (char *)data, 6) == 0) {
         debug_if(ism_debug, "ISM4336 recv 2 nothing to read=%d\r\n", read_amount);
         return 0; /* nothing to read */
