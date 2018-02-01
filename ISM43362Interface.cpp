@@ -197,16 +197,18 @@ int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
     if (id == -1) {
         return NSAPI_ERROR_NO_SOCKET;
     }
-    
+
     struct ISM43362_socket *socket = new struct ISM43362_socket;
     if (!socket) {
         return NSAPI_ERROR_NO_SOCKET;
     }
-
+    socket->read_mutex.lock();
     socket->id = id;
     socket->proto = proto;
     socket->connected = false;
     *handle = socket;
+    socket->read_mutex.unlock();
+
     return 0;
 }
 
@@ -311,24 +313,19 @@ int ISM43362Interface::socket_send(void *handle, const void *data, unsigned size
 
 int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
 {
-    unsigned recv = 0, tries = 0;
+    unsigned recv = 0;
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
-    _ism.setTimeout(ISM43362_RECV_TIMEOUT);
     char *ptr = (char *)data;
 
-    if (!socket->connected) {
-        return NSAPI_ERROR_CONNECTION_LOST;
-    }
-
-    debug_if(ism_debug, "ISM43362Interface::socket_recv requested=%d\r\n", size);
-    debug_if(ism_debug, "read_data_size=%d\r\n", socket->read_data_size);
-
-    if (!socket->connected) {
-        return NSAPI_ERROR_CONNECTION_LOST;
-    }
-
     socket->read_mutex.lock();
-    tries++;
+
+    debug_if(ism_debug, "[socket_recv] req=%d\r\n", size);
+
+    if (!socket->connected) {
+        return NSAPI_ERROR_CONNECTION_LOST;
+    }
+
+    _ism.setTimeout(ISM43362_RECV_TIMEOUT);
 
     if (socket->read_data_size == 0) {
         /* if no callback is set, no need to read ?*/
@@ -364,16 +361,15 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
             }
 
             socket->read_data_size -= size;
-            debug_if(ism_debug, "Moved i bytes=%d, vs %d requestd\r\n", i, size);
-            debug_if(ism_debug, "New socket->read_data_sizes=%d\r\n", socket->read_data_size);            }
+        }
     } else {
-        debug_if(ism_debug, "Nothing in buffer, tries=%d\r\n", tries);
+        debug_if(ism_debug, "Nothing in buffer\r\n");
     }
 
+    debug_if(ism_debug, "[socket_recv]read_datasize=%d, recv=%d\r\n", socket->read_data_size, recv);
     socket->read_mutex.unlock();
 
     if (recv > 0) {
-        debug_if(ism_debug, "socket_recv=%d\r\n", socket->read_data_size);
         return recv;
     } else {
         debug_if(ism_debug, "sock_recv returns WOULD BLOCK\r\n");
@@ -416,10 +412,11 @@ int ISM43362Interface::socket_recvfrom(void *handle, SocketAddress *addr, void *
 {
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
     int ret = socket_recv(socket, data, size);
+    socket->read_mutex.lock();
     if (ret >= 0 && addr) {
         *addr = socket->addr;
     }
-
+    socket->read_mutex.unlock();
     return ret;
 }
 
