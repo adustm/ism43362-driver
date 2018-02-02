@@ -275,6 +275,7 @@ private:
     ISM43362 _ism;
     bool _ids[ISM43362_SOCKET_COUNT];
     uint32_t _socket_obj[ISM43362_SOCKET_COUNT]; // store addresses of socket handles
+    Mutex _mutex;
 
     char ap_ssid[33]; /* 32 is what 802.11 defines as longest possible name; +1 for the \0 */
     nsapi_security_t ap_sec;
