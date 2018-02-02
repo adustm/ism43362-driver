@@ -575,6 +575,15 @@ int ISM43362::check_recv_status(int id, void *data)
     } else if ((read_amount >= 8) && (strncmp((char *)((uint32_t) data + read_amount - 8), "\r\nOK\r\n> ", 8)) == 0) {
         /* bypass ""\r\nOK\r\n> " if present at the end of the chain */
         read_amount -= 8;
+    } else {
+        debug_if(ism_debug, "ERROR in data RECV?, flushing %d bytes\r\n", read_amount);
+        uint32_t i = 0;
+        for (i = 0; i < read_amount; i++) {
+             debug_if(ism_debug, "%2X ", cleanup[i]);
+        }
+        cleanup[i] = 0;
+        debug_if(ism_debug, "\r\n%s\r\n", cleanup);
+        return -1; /* nothing to read */
     }
 
     debug_if(ism_debug, "ISM43362 read_amount=%d\r\n", read_amount);

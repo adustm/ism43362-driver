@@ -204,6 +204,7 @@ int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
     }
     socket->read_mutex.lock();
     socket->id = id;
+    debug_if(ism_debug, "socket_open, id=%d", socket->id);
     socket->proto = proto;
     socket->connected = false;
     *handle = socket;
@@ -216,6 +217,7 @@ int ISM43362Interface::socket_close(void *handle)
 {
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
     socket->read_mutex.lock();
+    debug_if(ism_debug, "socket_close, id=%d", socket->id);
     int err = 0;
     _ism.setTimeout(ISM43362_MISC_TIMEOUT);
  
@@ -273,6 +275,12 @@ void ISM43362Interface::socket_check_read()
                     int read_amount = _ism.check_recv_status(socket->id, socket->read_data);
                     if (read_amount > 0) {
                         socket->read_data_size = read_amount;
+
+                    } else if (read_amount < 0) {
+                        /* Mark donw connection has been lost or closed */
+                        socket->connected = false;
+                    }
+                    if (read_amount != 0) {
                         /* There is something to read in this socket*/
                         if (_cbs[socket->id].callback) {
                             _cbs[socket->id].callback(_cbs[socket->id].data);
@@ -332,6 +340,10 @@ int ISM43362Interface::socket_recv(void *handle, void *data, unsigned size)
         int read_amount = _ism.check_recv_status(socket->id, socket->read_data);
         if (read_amount > 0) {
             socket->read_data_size = read_amount;
+        } else if (read_amount < 0) {
+            socket->connected = false;
+            socket->read_mutex.unlock();
+            return NSAPI_ERROR_CONNECTION_LOST;
         }
     }
 
