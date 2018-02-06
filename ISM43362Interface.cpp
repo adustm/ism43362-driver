@@ -27,8 +27,13 @@
 #define ISM43362_RECV_TIMEOUT    100   /* milliseconds */
 #define ISM43362_MISC_TIMEOUT    100   /* milliseconds */
 
-// Firmware version
-#define ISM43362_VERSION 35239 /*C3.5.2.3BETA9 */
+// Tested firmware versions
+// Example of versions string returned by the module:
+// "ISM43362-M3G-L44-SPI,C3.5.2.3.BETA9,v3.5.2,v1.4.0.rc1,v8.2.1,120000000,Inventek eS-WiFi"
+// "ISM43362-M3G-L44-SPI,C3.5.2.2,v3.5.2,v1.4.0.rc1,v8.2.1,120000000,Inventek eS-WiFi"
+// Only the first version is checked !
+const char supported_fw_versions[2][15] = {"C3.5.2.3.BETA9", "C3.5.2.2"};
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 // ISM43362Interface implementation
@@ -55,14 +60,25 @@ int ISM43362Interface::connect(const char *ssid, const char *pass, nsapi_securit
 
 int ISM43362Interface::connect()
 {
+    const char* read_version;
+
     _ism.setTimeout(ISM43362_MISC_TIMEOUT);
-    
-    if (_ism.get_firmware_version() != ISM43362_VERSION) {
-        debug("ISM43362: ERROR: Firmware incompatible with this driver.\
-               \r\nUpdate to C3.5.2.3BETA9 - https://developer.mbed.org/teams/ISM43362/wiki/Firmware-Update\r\n");  // TODO change the link
+
+    // Check all supported firmware versions
+    read_version = _ism.get_firmware_version();
+
+    if (!read_version) {
+        debug_if(ism_debug, "ISM43362: ERROR cannot read firmware version\r\n");
         return NSAPI_ERROR_DEVICE_ERROR;
     }
-    
+    debug_if(ism_debug, "ISM43362: read_version = [%s]\r\n", read_version);
+
+    if ((strcmp(read_version, supported_fw_versions[0]) == 0) || (strcmp(read_version, supported_fw_versions[1]) == 0)) {
+        debug_if(ism_debug, "ISM43362: firmware version is OK\r\n");
+    } else {
+        debug_if(ism_debug, "ISM43362: WARNING this firmware version has not been tested !\r\n");
+    }
+
     /* don't see the related mode in Inventek specification : remove for the moment*/
   //  if (!_ism.startup(3)) {
   //      return NSAPI_ERROR_DEVICE_ERROR;

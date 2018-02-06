@@ -78,18 +78,30 @@ extern "C" int32_t ParseNumber(char* ptr, uint8_t* cnt)
     return sum;                          /* Return number */
 }
 
-int ISM43362::get_firmware_version()
+const char *ISM43362::get_firmware_version(void)
 {
-    /* Note: the firmware command does not seem to end exactly as the other
-     * commands. So we're not looking for \r\n at the end of the string */
-    if (!(_parser.send("I?")
-                && _parser.recv("ISM43362-M3G-L44-SPI,C3.5.2.3.BETA9,v3.5.2,v1.4.0.rc1,v8.2.1,120000000,Inventek eS-WiFi\r\n")
-                && check_response())) {
-	debug_if(ism_debug,"wrong version number\n");
-        return -1;
+    char tmp_buffer[250];
+    char *ptr, *ptr2;
+
+    if(!(_parser.send("I?") && _parser.recv("%s\r\n", tmp_buffer) && check_response())) {
+        debug_if(ism_debug, "get_firmware_version is FAIL\r\n");
+        return 0;
     }
 
-    return (35239);
+    // Get the first version in the string
+    // TODO ? : check if the beginning of the string is always = "ISM43362-M3G-L44-SPI,"
+    ptr = strtok((char *)tmp_buffer, ",");
+    ptr = strtok(NULL, ",");
+    ptr2 = strtok(NULL, ",");
+    if (ptr == NULL) {
+        debug_if(ism_debug, "get_firmware_version decoding is FAIL\r\n");
+        return 0;
+    }
+    strncpy(_fw_version, ptr , ptr2-ptr);
+
+    debug_if(ism_debug, "get_firmware_version = [%s]\r\n", _fw_version);
+
+    return _fw_version;
 }
 
 bool ISM43362::startup(int mode)

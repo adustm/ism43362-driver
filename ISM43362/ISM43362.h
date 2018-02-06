@@ -42,9 +42,9 @@ public:
     /**
     * Check firmware version of ISM43362
     *
-    * @return integer firmware version or -1 if firmware query command gives outdated response
+    * @return null-terminated fw version or null if no version is read
     */
-    int get_firmware_version(void);
+    const char *get_firmware_version(void);
     
     /**
     * Startup the ISM43362
@@ -246,6 +246,7 @@ private:
     char _gateway_buffer[16];
     char _netmask_buffer[16];
     char _mac_buffer[18];
+    char _fw_version[16];
 };
 
 #endif
