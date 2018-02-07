@@ -38,7 +38,7 @@ ISM43362Interface::ISM43362Interface(PinName mosi, PinName miso, PinName sclk, P
     memset(_ids, 0, sizeof(_ids));
     memset(_socket_obj, 0, sizeof(_socket_obj));
     memset(_cbs, 0, sizeof(_cbs));
-
+    thread_read_socket.start(callback(this, &ISM43362Interface::socket_check_read));
    // _ism.attach(this, &ISM43362Interface::event);
 }
 
@@ -176,7 +176,6 @@ struct ISM43362_socket {
     nsapi_protocol_t proto;
     bool connected;
     SocketAddress addr;
-//    Thread thread_read_socket;
     char read_data[1400];
     volatile uint32_t read_data_size;
 };
@@ -215,7 +214,6 @@ int ISM43362Interface::socket_open(void **handle, nsapi_protocol_t proto)
 int ISM43362Interface::socket_close(void *handle)
 {
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
-    bool exist_id = false;
     _mutex.lock();
     debug_if(ism_debug, "socket_close, id=%d", socket->id);
     int err = 0;
@@ -228,18 +226,6 @@ int ISM43362Interface::socket_close(void *handle)
     socket->connected = false;
     _ids[socket->id] = false;
     _socket_obj[socket->id] = 0;
-    /* Check if some sockets are still connected before closing the thread */
-    for (int i = 0; i < ISM43362_SOCKET_COUNT; i++) {
-        if (_socket_obj[i] != 0) {
-            exist_id =true;
-            break;
-        }
-    }
-    if (!exist_id) {
-        printf("TERMINATE reading thread\r\n");
-        debug_if(ism_debug, "TERMINATE reading thread\r\n");
-        thread_read_socket.terminate();
-    }
     _mutex.unlock();
     delete socket;
     return err;
@@ -454,12 +440,6 @@ void ISM43362Interface::socket_attach(void *handle, void (*cb)(void *), void *da
     if (cb != NULL) {
         memset(socket->read_data, 0, sizeof(socket->read_data));
         socket->read_data_size = 0;
-        /* Start the thread only once */
-        if (thread_read_socket.get_state() == (Thread::State)16) {
-            debug_if(ism_debug, "START reading thread\r\n");
-            printf("START reading thread\r\n");
-            thread_read_socket.start(callback(this, &ISM43362Interface::socket_check_read));
-        }
     }
     _mutex.unlock();
 }
