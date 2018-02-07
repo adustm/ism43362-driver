@@ -136,22 +136,21 @@ void ISM43362::print_rx_buff(void) {
  *  print error content then flush buffer */
 bool ISM43362::check_response(void)
 {
-    if(!(_parser.recv("OK\r\n"))) {
+    if(!_parser.recv("OK\r\n")) {
         print_rx_buff();
         _parser.flush();
         return false;
     }
 
-    /* The last characters of commands are not always present, so we
-     * mainly want to clean-up the buffer, but don't plan to wait for
-     * this trailing characters, so we temporariliy reduce the timout
-     * to 1 ms only.
-     */
-    int save = _timeout;
-    setTimeout(1);
     /*  Then we should get "> ", but sometimes it seems it's missing,
      *  let's make it optional */
-    _parser.recv("> \r\n");
+    if(!_parser.recv("> \r\n")) {
+        debug_if(ism_debug, "Missing prompt in WIFI resp\r\n");
+        print_rx_buff();
+        _parser.flush();
+        return false;
+    }
+
     /*  Inventek module do stuffing / padding of data with 0x15,
      *  in case buffer containes such */
     while(1) {
@@ -163,7 +162,6 @@ bool ISM43362::check_response(void)
             break;
         }
     }
-    setTimeout(save);
 
     return true;
 }
@@ -465,13 +463,6 @@ bool ISM43362::open(const char *type, int id, const char* addr, int port)
         return false;
     }
 
-    /* MBED wifi driver is meant to be non-blocking, so we'll never actually
-     * request the WIFI driver to wait for data, so we set receive timeout
-     * to not wait for data, but simply check if there is data present in
-     * the internal buffers of the module, using minimum 1ms read timeout */
-    if (!(_parser.send("R2=%d", 1) && check_response())) {
-        return -1;
-    }
     /* request as much data as possible - i.e. module max size */
     if (!(_parser.send("R1=%d", ES_WIFI_MAX_RX_PACKET_SIZE)&& check_response())) {
             return -1;
@@ -539,6 +530,7 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
 int ISM43362::check_recv_status(int id, void *data)
 {
     uint32_t read_amount;
+    static int keep_to = 0;
 
     debug_if(ism_debug, "ISM43362 req check_recv_status\r\n");
     /* Activate the socket id in the wifi module */
@@ -551,6 +543,17 @@ int ISM43362::check_recv_status(int id, void *data)
         if (!(_parser.send("P0=%d",id) && check_response())) {
             return -1;
         }
+    }
+
+
+    /* MBED wifi driver is meant to be non-blocking, but we need anyway to
+     * wait for some data on the RECV side to avoid overflow on TX side, the
+     * tiemout is defined in higher layer */
+    if (keep_to != _timeout) {
+        if (!(_parser.send("R2=%d", _timeout) && check_response())) {
+            return -1;
+        }
+        keep_to = _timeout;
     }
 
     if (!_parser.send("R0")) {

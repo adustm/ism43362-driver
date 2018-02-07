@@ -42,33 +42,12 @@
 // getc/putc handling with timeouts
 int ATParser::putc(char c)
 {
-    Timer timer;
-    timer.start();
-
-    while (true) {
-        if (_serial_spi->writeable()) {
-            return _serial_spi->putc(c);
-        }
-        if (timer.read_ms() > _timeout) {
-            return -1;
-        }
-    }
+    return _serial_spi->putc(c);
 }
 
 int ATParser::getc()
 {
-    Timer timer;
-    timer.start();
-
-
-    while (true) {
-        if (_serial_spi->readable()) {
-            return _serial_spi->getc();
-        }
-        if (timer.read_ms() > _timeout) {
-            return -1;
-        }
-    }
+    return _serial_spi->getc();
 }
 
 void ATParser::flush()
@@ -91,6 +70,7 @@ int ATParser::write(const char *data, int size_of_data, int size_in_buff)
             return -1;
         }
     }
+
     _serial_spi->buffsend(size_of_data + size_in_buff);
     _bufferMutex.unlock();
     return (size_of_data + size_in_buff);
@@ -243,11 +223,11 @@ bool ATParser::vsend(const char *command, va_list args)
     }
     _buffer[i+j]=0; // only to get a clean debug log
     
-    _serial_spi->buffwrite(_buffer, i+j); /* DEBUG : check returned value */
+    bool ret = !(_serial_spi->buffwrite(_buffer, i+j) < 0);
 
     debug_if(dbg_on, "AT> %s\n", _buffer);
     _bufferMutex.unlock();
-    return true;
+    return ret;
 }
 
 bool ATParser::vrecv(const char *response, va_list args)
@@ -257,7 +237,9 @@ bool ATParser::vrecv(const char *response, va_list args)
     //this->flush();
     if(!_serial_spi->readable()) {
          debug_if(dbg_on, "NO DATA, read again\r\n");
-        _serial_spi->read();
+        if (_serial_spi->read() < 0) {
+            return false;
+        }
     } else {
          debug_if(dbg_on, "Pending data\r\n");
     }

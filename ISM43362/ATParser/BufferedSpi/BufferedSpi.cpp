@@ -23,13 +23,12 @@
 #include "BufferedSpi.h"
 #include <stdarg.h>
 #include "mbed_debug.h"
+#include "mbed_error.h"
 
 // change to true to add few SPI debug lines
 #define local_debug false
 
-
 extern "C" int BufferedPrintfC(void *stream, int size, const char* format, va_list arg);
-
 
 void BufferedSpi::DatareadyRising(void)
 {
@@ -38,16 +37,41 @@ void BufferedSpi::DatareadyRising(void)
    }
 }
 
-int BufferedSpi::wait_cmddata_rdy_rising_event(void)
+int BufferedSpi::wait_cmddata_rdy_high(void)
 {
-  while (_cmddata_rdy_rising_event == 1) {
-        // TO DO handle the timeout
-        // From measurement, a few ms are spent waiting
-        // so let's release CPU for other threads to run
-        wait_ms(1);
+  Timer timer;
+  timer.start();
+
+  /* wait for dataready = 1 */
+  while(dataready.read() == 0) {
+       if (timer.read_ms() > _timeout) {
+          error("SPI write timeout\r\n");
+          return -1;
+       }
   }
 
+  _cmddata_rdy_rising_event = 1;
+
   return 0;
+}
+
+int BufferedSpi::wait_cmddata_rdy_rising_event(void)
+{
+    Timer timer;
+    timer.start();
+
+    while (_cmddata_rdy_rising_event == 1) {
+       if (timer.read_ms() > _timeout) {
+           _cmddata_rdy_rising_event = 0;
+           if (dataready.read() == 1) {
+               error("We missed rising event !! (timemout=%d)\r\n", _timeout);
+           }
+           error("SPI read timeout\r\n");
+           return -1;
+       }
+    }
+
+    return 0;
 }
 
 BufferedSpi::BufferedSpi(PinName mosi, PinName miso, PinName sclk, PinName _nss, PinName _datareadypin,
@@ -60,6 +84,7 @@ BufferedSpi::BufferedSpi(PinName mosi, PinName miso, PinName sclk, PinName _nss,
 
     _datareadyInt = new InterruptIn(_datareadypin);
     _datareadyInt->rise(callback(this, &BufferedSpi::DatareadyRising));
+
     _cmddata_rdy_rising_event = 1;
 
     return;
@@ -107,7 +132,7 @@ int BufferedSpi::getc(void)
 {
     if (_rxbuf.available())
         return _rxbuf;
-    else return 0;
+    else return -1;
 }
 
 int BufferedSpi::get16b(void)
@@ -168,13 +193,11 @@ ssize_t BufferedSpi::buffwrite(const void *s, size_t length)
 {
     /* flush buffer from previous message */
     this->flush_txbuf();
-    
-    /* wait for dataready = 1 */
-    while(dataready.read() == 0) {
-    }
 
-    // arm to detect rising event
-    _cmddata_rdy_rising_event = 1;
+    if (wait_cmddata_rdy_high() < 0) {
+        debug_if(local_debug, "BufferedSpi::buffwrite timeout (%d)\r\n", _timeout);
+        return -1;
+    }
 
     this->enable_nss();
     
@@ -205,11 +228,10 @@ ssize_t BufferedSpi::buffwrite(const void *s, size_t length)
 ssize_t BufferedSpi::buffsend(size_t length)
 {
     /* wait for dataready = 1 */
-    while(dataready.read() == 0) {
+    if (wait_cmddata_rdy_high() < 0) {
+        debug_if(local_debug, "BufferedSpi::buffsend timeout (%d)\r\n", _timeout);
+        return -1;
     }
-
-    // arm to detect rising event
-    _cmddata_rdy_rising_event = 1;
 
     this->enable_nss();
 
@@ -239,8 +261,10 @@ ssize_t BufferedSpi::read(int max)
     disable_nss();
 
     /* wait for data ready is up */
-    wait_cmddata_rdy_rising_event();
-
+    if(wait_cmddata_rdy_rising_event() != 0) {
+        debug_if(local_debug, "BufferedSpi::read timeout (%d)\r\n", _timeout);
+        return -1;
+    }
 
     enable_nss();
     while (dataready.read() == 1) {

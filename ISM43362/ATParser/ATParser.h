@@ -109,6 +109,7 @@ public:
     void setTimeout(int timeout) 
     {
         _timeout = timeout;
+        _serial_spi->setTimeout(timeout);
     }
 
     /**

@@ -75,6 +75,7 @@ private:
     MyBuffer <char> _txbuf;
     uint32_t      _buf_size;
     uint32_t      _tx_multiple;
+    int _timeout;
     void rxIrq(void);
     void txIrq(void);
     void prime(void);
@@ -82,7 +83,9 @@ private:
     InterruptIn* _datareadyInt;
     volatile int _cmddata_rdy_rising_event;
     void DatareadyRising(void);
-    int wait_cmddata_rdy_rising_event();
+    int wait_cmddata_rdy_rising_event(void);
+    int wait_cmddata_rdy_high(void);
+
 
     Callback<void()> _cbs[2];
 
@@ -186,6 +189,19 @@ public:
      */
     virtual ssize_t read();
     virtual ssize_t read(int max);
+
+    /**
+    * Allows timeout to be changed between commands
+    *
+    * @param timeout timeout of the connection
+    */
+    void setTimeout(int timeout)
+    {
+        /*  this is a safe guard timeout in case module is stuck
+         *  so take 1 sec margin compared to module timeout, to
+         *  really only detect case where module is stuck */
+        _timeout = timeout + 1000;
+    }
 
     /** Register a callback once any data is ready for sockets
      *  @param func     Function to call on state change

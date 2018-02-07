@@ -23,9 +23,9 @@
 
 // Various timeouts for different ISM43362 operations
 #define ISM43362_CONNECT_TIMEOUT 15000 /* milliseconds */
-#define ISM43362_SEND_TIMEOUT    500   /* milliseconds */
-#define ISM43362_RECV_TIMEOUT    500   /* milliseconds */
-#define ISM43362_MISC_TIMEOUT    500   /* milliseconds */
+#define ISM43362_SEND_TIMEOUT    1000   /* milliseconds */
+#define ISM43362_RECV_TIMEOUT    100   /* milliseconds */
+#define ISM43362_MISC_TIMEOUT    100   /* milliseconds */
 
 // Firmware version
 #define ISM43362_VERSION 35239 /*C3.5.2.3BETA9 */
@@ -244,7 +244,7 @@ int ISM43362Interface::socket_listen(void *handle, int backlog)
 int ISM43362Interface::socket_connect(void *handle, const SocketAddress &addr)
 {
     struct ISM43362_socket *socket = (struct ISM43362_socket *)handle;
-    _ism.setTimeout(ISM43362_MISC_TIMEOUT);
+    _ism.setTimeout(ISM43362_CONNECT_TIMEOUT);
 
     _mutex.lock();
     const char *proto = (socket->proto == NSAPI_UDP) ? "1" : "0";
@@ -269,11 +269,11 @@ void ISM43362Interface::socket_check_read()
                 /* Check if there is something to read for this socket. But if it */
                 /* has already been read : don't read again */
                 if ((socket->connected) && (socket->read_data_size == 0) && _cbs[socket->id].callback) {
+                    _ism.setTimeout(1);
                     /* if no callback is set, no need to read ?*/
                     int read_amount = _ism.check_recv_status(socket->id, socket->read_data);
                     if (read_amount > 0) {
                         socket->read_data_size = read_amount;
-
                     } else if (read_amount < 0) {
                         /* Mark donw connection has been lost or closed */
                         socket->connected = false;
