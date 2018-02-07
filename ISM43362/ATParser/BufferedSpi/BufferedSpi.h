@@ -188,7 +188,7 @@ public:
      *  @return The number of bytes read from the SPI port and written to the _rxbuf
      */
     virtual ssize_t read();
-    virtual ssize_t read(int max);
+    virtual ssize_t read(uint32_t max);
 
     /**
     * Allows timeout to be changed between commands

@@ -253,9 +253,9 @@ ssize_t BufferedSpi::read()
     return this->read(0);
 }
 
-ssize_t BufferedSpi::read(int max)
+ssize_t BufferedSpi::read(uint32_t max)
 {
-    int len = 0;
+    uint32_t len = 0;
     int tmp;
 
     disable_nss();
@@ -267,21 +267,9 @@ ssize_t BufferedSpi::read(int max)
     }
 
     enable_nss();
-    while (dataready.read() == 1) {
-        tmp = SPI::write(0);  // dummy write to receive 2 bytes
+    while (dataready.read() == 1 && (len < (_buf_size - 1))) {
+        tmp = SPI::write(0xAA);  // dummy write to receive 2 bytes
 
-        if ((tmp&0xFF00) == 0x1500) { // last char reached ?
-            wait_us(100);
-        }
-        if (dataready.read() == 0) { /* end of reception reached */
-            if ((tmp&0XFF00) == 0x1500){
-                if ( (max == 0) || (len < max)) { // to remove once data > buff size is handled
-                    _rxbuf = (char)(tmp & 0xFF);
-                    len++;
-                }
-                break;
-            }
-        }
         if (!((len == 0) && (tmp == 0x0A0D))) {
             /* do not take into account the 2 firts \r \n char in the buffer */
             if ((max == 0) || (len < max)) {
@@ -292,6 +280,11 @@ ssize_t BufferedSpi::read(int max)
         }
     }
     disable_nss();
+
+    if (len >= _buf_size) {
+        debug_if(local_debug, "firmware ERROR ES_WIFI_ERROR_STUFFING_FOREVER\r\n");
+        return -1;
+    }
 
     debug_if(local_debug, "SPI READ %d BYTES\r\n", len);
 
