@@ -230,7 +230,7 @@ private:
     BufferedSpi _bufferspi;
     ATParser _parser;
     DigitalOut _resetpin;
-    int _timeout;
+    volatile int _timeout;
     volatile int _active_id;
     void print_rx_buff(void);
     bool check_response(void);

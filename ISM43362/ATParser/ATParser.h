@@ -52,14 +52,14 @@ private:
     int _buffer_size;
     char *_buffer;
     Mutex _bufferMutex;
-    int _timeout;
+    volatile int _timeout;
 
     // Parsing information
     const char *_delimiter;
     int _delim_size;
     char _in_prev;
     bool dbg_on;
-    bool _aborted;
+    volatile bool _aborted;
 
     struct oob {
         unsigned len;

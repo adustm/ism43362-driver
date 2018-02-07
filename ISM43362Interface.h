@@ -292,7 +292,9 @@ private:
      *
      */
     virtual void socket_check_read();
-    
+    int socket_send_nolock(void *handle, const void *data, unsigned size);
+    int socket_connect_nolock(void *handle, const SocketAddress &addr);
+
 };
 
 #endif

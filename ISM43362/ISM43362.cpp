@@ -187,10 +187,9 @@ bool ISM43362::connect(const char *ap, const char *passPhrase)
     /* now connect */
     /* connect response contains more data that we don't need now,
      * So we only look for OK, the flush the end of it */
-    if (!(_parser.send("C0") && _parser.recv("OK\r\n"))) {
+    if (!(_parser.send("C0") && check_response())) {
         return false;
     }
-    _parser.flush();
 
     return true;
 }
@@ -529,7 +528,7 @@ bool ISM43362::send(int id, const void *data, uint32_t amount)
 
 int ISM43362::check_recv_status(int id, void *data)
 {
-    uint32_t read_amount;
+    int read_amount;
     static int keep_to = 0;
 
     debug_if(ism_debug, "ISM43362 req check_recv_status\r\n");
@@ -561,6 +560,11 @@ int ISM43362::check_recv_status(int id, void *data)
     }
     read_amount = _parser.read((char *)data);
 
+    if(read_amount < 0) {
+        debug_if(ism_debug, "ERROR in data RECV, timeout?\r\n");
+        return -1; /* nothing to read */
+    }
+
     /*  If there are spurious 0x15 at the end of the data, this is an error
      *  we hall can get rid off of them :-(
      *  This should not happen, but let's try to clean-up anyway
@@ -572,7 +576,7 @@ int ISM43362::check_recv_status(int id, void *data)
         read_amount--;
     }
 
-    if (strncmp("OK\r\n> ", (char *)data, 6) == 0) {
+    if ((read_amount >= 6) && (strncmp("OK\r\n> ", (char *)data, 6) == 0)) {
         debug_if(ism_debug, "ISM4336 recv 2 nothing to read=%d\r\n", read_amount);
         return 0; /* nothing to read */
     } else if ((read_amount >= 8) && (strncmp((char *)((uint32_t) data + read_amount - 8), "\r\nOK\r\n> ", 8)) == 0) {
@@ -580,7 +584,7 @@ int ISM43362::check_recv_status(int id, void *data)
         read_amount -= 8;
     } else {
         debug_if(ism_debug, "ERROR in data RECV?, flushing %d bytes\r\n", read_amount);
-        uint32_t i = 0;
+        int i = 0;
         for (i = 0; i < read_amount; i++) {
              debug_if(ism_debug, "%2X ", cleanup[i]);
         }

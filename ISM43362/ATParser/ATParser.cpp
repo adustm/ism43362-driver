@@ -83,9 +83,13 @@ int ATParser::read(char *data)
 
     _bufferMutex.lock();
 
-    this->flush();
-
-    readsize = _serial_spi->read();
+    //this->flush();
+    if(!_serial_spi->readable()) {
+        readsize = _serial_spi->read();
+    } else {
+        error("Pending data when reading from WIFI\r\n");
+        return -1;
+    }
 
     debug_if(dbg_on, "Avail in SPI %d\r\n", readsize);
 

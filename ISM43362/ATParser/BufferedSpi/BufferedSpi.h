@@ -75,7 +75,7 @@ private:
     MyBuffer <char> _txbuf;
     uint32_t      _buf_size;
     uint32_t      _tx_multiple;
-    int _timeout;
+    volatile int _timeout;
     void rxIrq(void);
     void txIrq(void);
     void prime(void);
