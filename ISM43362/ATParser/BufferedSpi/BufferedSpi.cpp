@@ -135,18 +135,6 @@ int BufferedSpi::getc(void)
     else return -1;
 }
 
-int BufferedSpi::get16b(void)
-{
-    int res;
-    res = SPI::write(0);  // dummy write to receive
-    _rxbuf = (char)(res&0xFF);
-    _rxbuf = (char)((res>>8)&0xFF);
-
-    res = _rxbuf;
-    res |= ((_rxbuf<<8)&0xFF00);
-    return res;
-}
-
 int BufferedSpi::putc(int c)
 {
     _txbuf = (char)c;
@@ -289,16 +277,6 @@ ssize_t BufferedSpi::read(uint32_t max)
     debug_if(local_debug, "SPI READ %d BYTES\r\n", len);
 
     return len;
-}
-
-void BufferedSpi::rxIrq(void)
-{
-    // read from the peripheral 
-    _rxbuf = (char)SPI::write(0);
-    if (_cbs[RxIrq]) {
-        _cbs[RxIrq]();
-    }
-    return;
 }
 
 void BufferedSpi::txIrq(void)

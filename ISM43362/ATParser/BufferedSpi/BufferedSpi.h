@@ -76,7 +76,6 @@ private:
     uint32_t      _buf_size;
     uint32_t      _tx_multiple;
     volatile int _timeout;
-    void rxIrq(void);
     void txIrq(void);
     void prime(void);
 
@@ -149,7 +148,6 @@ public:
      *  @return A byte that came in on the SPI Port
      */
     virtual int getc(void);
-    virtual int get16b(void);
     
     /** Write a single byte to the BufferedSpi Port.
      *  @param c The byte to write to the SPI Port
