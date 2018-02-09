@@ -44,7 +44,6 @@ ISM43362Interface::ISM43362Interface(PinName mosi, PinName miso, PinName sclk, P
     memset(_socket_obj, 0, sizeof(_socket_obj));
     memset(_cbs, 0, sizeof(_cbs));
     thread_read_socket.start(callback(this, &ISM43362Interface::socket_check_read));
-   // _ism.attach(this, &ISM43362Interface::event);
 }
 
 int ISM43362Interface::connect(const char *ssid, const char *pass, nsapi_security_t security,
@@ -78,11 +77,6 @@ int ISM43362Interface::connect()
     } else {
         debug_if(ism_debug, "ISM43362: WARNING this firmware version has not been tested !\r\n");
     }
-
-    /* don't see the related mode in Inventek specification : remove for the moment*/
-  //  if (!_ism.startup(3)) {
-  //      return NSAPI_ERROR_DEVICE_ERROR;
-  //  }
 
     if (!_ism.dhcp(true)) {
         return NSAPI_ERROR_DHCP_FAILURE;

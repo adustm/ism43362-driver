@@ -47,14 +47,6 @@ public:
     const char *get_firmware_version(void);
     
     /**
-    * Startup the ISM43362
-    *
-    * @param mode mode of WIFI 1-client, 2-host, 3-both
-    * @return true only if ISM43362 was setup correctly
-    */
-    bool startup(int mode);
-
-    /**
     * Reset ISM43362
     *
     * @return true only if ISM43362 resets successfully

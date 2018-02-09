@@ -89,7 +89,6 @@ const char *ISM43362::get_firmware_version(void)
     }
 
     // Get the first version in the string
-    // TODO ? : check if the beginning of the string is always = "ISM43362-M3G-L44-SPI,"
     ptr = strtok((char *)tmp_buffer, ",");
     ptr = strtok(NULL, ",");
     ptr2 = strtok(NULL, ",");
@@ -102,11 +101,6 @@ const char *ISM43362::get_firmware_version(void)
     debug_if(ism_debug, "get_firmware_version = [%s]\r\n", _fw_version);
 
     return _fw_version;
-}
-
-bool ISM43362::startup(int mode)
-{
-  return false;
 }
 
 bool ISM43362::reset(void)
