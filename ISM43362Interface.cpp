@@ -183,7 +183,7 @@ int8_t ISM43362Interface::get_rssi()
 
 int ISM43362Interface::scan(WiFiAccessPoint *res, unsigned count)
 {
-    _ism.setTimeout(ISM43362_MISC_TIMEOUT);
+    _ism.setTimeout(ISM43362_CONNECT_TIMEOUT);
     return _ism.scan(res, count);
 }
 

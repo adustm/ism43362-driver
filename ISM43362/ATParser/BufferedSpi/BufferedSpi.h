@@ -196,9 +196,9 @@ public:
     void setTimeout(int timeout)
     {
         /*  this is a safe guard timeout in case module is stuck
-         *  so take 1 sec margin compared to module timeout, to
+         *  so take 5 sec margin compared to module timeout, to
          *  really only detect case where module is stuck */
-        _timeout = timeout + 1000;
+        _timeout = timeout + 5000;
     }
 
     /** Register a callback once any data is ready for sockets
