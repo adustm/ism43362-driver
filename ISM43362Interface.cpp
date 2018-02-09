@@ -231,7 +231,7 @@ int ISM43362Interface::socket_close(void *handle)
     int err = 0;
     _ism.setTimeout(ISM43362_MISC_TIMEOUT);
  
-    if (socket->connected && !_ism.close(socket->id)) {
+    if (!_ism.close(socket->id)) {
         err = NSAPI_ERROR_DEVICE_ERROR;
     }
 
